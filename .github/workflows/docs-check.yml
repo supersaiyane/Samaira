@@ -1,0 +1,33 @@
+name: Docs Freshness Check
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # every Monday 6 AM
+  workflow_dispatch:       # allow manual trigger
+
+jobs:
+  check-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Check changes
+        id: detect
+        run: |
+          CHANGES=$(git log --since="7 days" --name-only)
+          echo "Changed files:"
+          echo "$CHANGES"
+          if [[ $CHANGES == *"backend"* || $CHANGES == *"frontend"* || $CHANGES == *"airflow"* ]]; then
+            echo "needs_update=true" >> $GITHUB_ENV
+          else
+            echo "needs_update=false" >> $GITHUB_ENV
+          fi
+
+      - name: Create GitHub Issue
+        if: env.needs_update == 'true'
+        uses: peter-evans/create-issue-from-file@v4
+        with:
+          title: "Docs outdated – update section(s)"
+          content-filepath: .github/DOCS_REMINDER.md
+          labels: documentation

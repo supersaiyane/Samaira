@@ -1,0 +1,5 @@
+issue: Budget Breach
+service: ALL
+action: notify_only
+params:
+  message: "Budget breach detected – escalation to CFO"

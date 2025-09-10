@@ -1,0 +1,97 @@
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from datetime import datetime, timedelta
+import psycopg2
+import os
+
+# =========================
+# DB Connection Helper
+# =========================
+def get_db_connection():
+    return psycopg2.connect(
+        dbname=os.getenv("DB_NAME", "finopsdb"),
+        user=os.getenv("DB_USER", "finops"),
+        password=os.getenv("DB_PASSWORD", "finops123"),
+        host=os.getenv("DB_HOST", "db"),
+        port=os.getenv("DB_PORT", "5432"),
+    )
+
+# =========================
+# Backfill Service IDs
+# =========================
+def backfill_service_ids():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Find unmapped services that now exist in services table
+    cursor.execute(
+        """
+        SELECT u.id, u.service_name, s.service_id
+        FROM unmapped_services u
+        JOIN services s
+        ON u.service_name = s.service_name
+        WHERE s.cloud_provider = u.cloud_provider
+        """
+    )
+    mappings = cursor.fetchall()
+
+    for unmapped_id, service_name, service_id in mappings:
+        print(f"🔹 Backfilling service {service_name} → service_id {service_id}")
+
+        # Update resources
+        cursor.execute(
+            """
+            UPDATE resources
+            SET service_id = %s
+            WHERE service_id IS NULL
+            AND resource_name ILIKE %s
+            """,
+            (service_id, f"%{service_name}%"),
+        )
+
+        # Update billing
+        cursor.execute(
+            """
+            UPDATE billing
+            SET service_id = %s
+            WHERE service_id IS NULL
+            AND metadata->>'service_name' = %s
+            """,
+            (service_id, service_name),
+        )
+
+        # Remove from unmapped_services (cleanup)
+        cursor.execute("DELETE FROM unmapped_services WHERE id=%s", (unmapped_id,))
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+# =========================
+# DAG Definition
+# =========================
+default_args = {
+    "owner": "finops",
+    "depends_on_past": False,
+    "email_on_failure": True,
+    "email": ["alerts@finops-toolkit.com"],
+    "retries": 1,
+    "retry_delay": timedelta(minutes=5),
+}
+
+with DAG(
+    dag_id="backfill_service_ids",
+    default_args=default_args,
+    description="Daily job to backfill NULL service_ids in resources and billing once services are mapped",
+    schedule_interval="0 3 * * *",   # daily at 3 AM UTC
+    start_date=datetime(2024, 1, 1),
+    catchup=False,
+    tags=["finops", "services", "backfill"],
+) as dag:
+
+    backfill_task = PythonOperator(
+        task_id="backfill_service_ids_task",
+        python_callable=backfill_service_ids,
+    )
+
+    backfill_task

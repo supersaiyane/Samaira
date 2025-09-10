@@ -1,0 +1,141 @@
+name: Alembic Migrations CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+    paths:
+      - "backend/app/models/**"
+      - "backend/alembic/**"
+      - "backend/alembic.ini"
+  pull_request:
+    paths:
+      - "backend/app/models/**"
+      - "backend/alembic/**"
+      - "backend/alembic.ini"
+  workflow_dispatch:
+
+jobs:
+  migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: finops
+          POSTGRES_PASSWORD: finops123
+          POSTGRES_DB: finopsdb
+        options: >-
+          --health-cmd="pg_isready -U finops -d finopsdb"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DB_USER: finops
+      DB_PASSWORD: finops123
+      DB_NAME: finopsdb
+      DB_HOST: localhost
+      DB_PORT: 5432
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          pip install -r app/requirements.txt
+          pip install alembic asyncpg psycopg2-binary
+
+      - name: Check for new migrations
+        working-directory: backend
+        run: |
+          alembic revision --autogenerate -m "check migration" || true
+          if [ -n "$(ls alembic/versions)" ]; then
+            echo "⚠️ New migration files detected!"
+            exit 1
+          else
+            echo "✅ No new migrations required."
+          fi
+
+      - name: Run migrations (CI)
+        working-directory: backend
+        run: |
+          alembic upgrade head
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: migrations
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        working-directory: backend
+        run: pip install alembic psycopg2-binary
+
+      - name: Run migrations on target DB
+        id: migrate
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -e
+          alembic upgrade head
+
+      - name: Deploy backend
+        id: deploy
+        run: |
+          echo "🚀 Deploying backend..."
+          # Replace with ECS/EKS deploy command
+          exit 1  # simulate failure for demo
+
+      - name: Rollback DB (if deploy fails)
+        if: failure() && steps.migrate.outcome == 'success'
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "⚠️ Deployment failed, rolling back DB..."
+          alembic downgrade -1
+
+      - name: Notify Slack/MS Teams
+        if: always()
+        run: |
+          STATUS="✅ SUCCESS"
+          if [ "${{ job.status }}" == "failure" ]; then
+            STATUS="❌ FAILURE (Rollback Triggered)"
+          fi
+
+          MESSAGE="*FinOps Deployment Alert*  
+          Branch: ${{ github.ref }}  
+          Status: $STATUS  
+          Workflow: Alembic Migrations CI/CD  
+          Commit: ${{ github.sha }}  
+          Actor: ${{ github.actor }}"
+
+          # 🔹 Slack webhook
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\": \"$MESSAGE\"}" \
+            ${{ secrets.SLACK_WEBHOOK }}
+
+          # 🔹 MS Teams webhook
+          curl -H 'Content-Type: application/json' \
+            -d "{\"text\": \"$MESSAGE\"}" \
+            ${{ secrets.TEAMS_WEBHOOK }}
