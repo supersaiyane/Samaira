@@ -5,22 +5,20 @@ from app.core.config import settings
 # Base class for models
 Base = declarative_base()
 
-# Create async engine
+# Async engine (ensure asyncpg driver in DATABASE_URL)
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=True,            # set False in prod
-    pool_size=10,
-    max_overflow=20,
+    echo=True if settings.DB_DEBUG else False,  # toggle debug logging
     future=True
 )
 
-# Create async session
+# Async session factory
 AsyncSessionLocal = sessionmaker(
-    bind=engine, 
+    bind=engine,
     class_=AsyncSession,
     expire_on_commit=False,
     autoflush=False,
-    autocommit=False
+    autocommit=False,
 )
 
 # Dependency for FastAPI routes

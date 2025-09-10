@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     DB_HOST: str = os.getenv("DB_HOST", "db")
     DB_PORT: str = os.getenv("DB_PORT", "5432")
 
+    DB_DEBUG: bool = os.getenv("DB_DEBUG", "false").lower() == "true"
+
     @property
     def DATABASE_URL(self) -> str:
         return (
