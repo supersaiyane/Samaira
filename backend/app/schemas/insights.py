@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, Any
+from typing import Optional, Any, List
 
 class InsightBase(BaseModel):
     account_id: Optional[int]
@@ -16,3 +16,20 @@ class InsightResponse(InsightBase):
 
     class Config:
         orm_mode = True
+
+class SeverityCount(BaseModel):
+    severity: str
+    count: int
+
+class ServiceCount(BaseModel):
+    service_name: str
+    count: int
+
+class TrendPoint(BaseModel):
+    day: str
+    count: int
+
+class InsightSummary(BaseModel):
+    by_severity: List[SeverityCount]
+    top_services: List[ServiceCount]
+    trend : List[TrendPoint]
