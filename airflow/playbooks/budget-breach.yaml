@@ -1,0 +1,8 @@
+issue: "Budget Breach"
+service: "ALL"
+action: "notify_only"
+params:
+  api: "none"
+  method: ""
+  args: {}
+  message: "⚠️ Budget breach detected. CFO notified. No auto-action taken."

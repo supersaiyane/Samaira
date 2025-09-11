@@ -6,6 +6,9 @@ import requests
 import json
 import boto3
 import psycopg2
+import yaml
+import glob
+import uuid
 
 # =========================
 # DB Connection Helper
@@ -37,10 +40,6 @@ def notify(message):
         }
         requests.post(teams_url, json=payload)
 
-
-import yaml
-import glob
-
 # =========================
 # Load Playbooks
 # =========================
@@ -61,7 +60,7 @@ def execute_playbook(pb, details):
     method = pb["params"]["method"]
     args = pb["params"]["args"]
 
-    # Replace placeholders (e.g., {{ resource_id }})
+    # Replace placeholders
     resolved_args = {}
     for k, v in args.items():
         if isinstance(v, str) and v.startswith("{{") and v.endswith("}}"):
@@ -71,7 +70,7 @@ def execute_playbook(pb, details):
             resolved_args[k] = v
 
     if pb["action"] == "notify_only":
-        return pb["params"]["message"]
+        return pb["params"].get("message", "Notification only")
 
     if api == "ec2":
         client = boto3.client("ec2", region_name=os.getenv("AWS_REGION", "us-east-1"))
@@ -83,65 +82,69 @@ def execute_playbook(pb, details):
     getattr(client, method)(**resolved_args)
     return f"Executed {pb['action']} on {pb['service']} with {resolved_args}"
 
-
-# =========================
-# AWS Clients
-# =========================
-ec2 = boto3.client("ec2", region_name=os.getenv("AWS_REGION", "us-east-1"))
-lambda_client = boto3.client("lambda", region_name=os.getenv("AWS_REGION", "us-east-1"))
-
 # =========================
 # Remediation Logic
 # =========================
 def remediate_anomalies():
     conn = get_db_connection()
     cursor = conn.cursor()
+    playbooks = load_playbooks()
 
     cursor.execute("""
         SELECT anomaly_id, account_id, service_id, metric, details
         FROM anomalies
-        WHERE status IS NULL OR status = 'unresolved'
+        WHERE status = 'open'
     """)
     anomalies = cursor.fetchall()
 
     for anomaly_id, account_id, service_id, metric, details in anomalies:
-        action_taken = None
-        details = details if isinstance(details, dict) else {}
+        try:
+            # Ensure JSON details
+            if isinstance(details, str):
+                details = json.loads(details)
+            details = details or {}
 
-        # Example playbooks
-        if details.get("issue") == "Idle Resource":
-            # Stop EC2 instance
-            instance_id = details.get("resource_id")
-            if instance_id:
-                ec2.stop_instances(InstanceIds=[instance_id])
-                action_taken = f"Stopped idle EC2 instance {instance_id}"
+            issue = details.get("issue")
+            service = details.get("service")
 
-        elif details.get("issue") == "Lambda Inactivity":
-            # Delete unused Lambda
-            fn_name = details.get("function_name")
-            if fn_name:
-                lambda_client.delete_function(FunctionName=fn_name)
-                action_taken = f"Deleted idle Lambda function {fn_name}"
+            action_taken = None
 
-        elif details.get("issue") == "Budget Breach":
-            action_taken = "Budget breach - no auto action, CFO notified"
+            # Find matching playbook
+            pb = playbooks.get((issue, service))
+            if pb:
+                action_taken = execute_playbook(pb, details)
+            else:
+                action_taken = f"No playbook found for {issue}/{service}"
 
-        elif details.get("issue") == "Forecast Drift":
-            action_taken = "Forecast drift - flagged to FinOps team"
+            # Update anomaly status
+            new_status = "remediated" if "Executed" in action_taken else "ignored"
+            cursor.execute(
+                "UPDATE anomalies SET status = %s WHERE anomaly_id = %s",
+                (new_status, anomaly_id),
+            )
 
-        # Update DB
-        cursor.execute("""
-            UPDATE anomalies
-            SET status = %s
-            WHERE anomaly_id = %s
-        """, ("remediated" if action_taken else "ignored", anomaly_id))
+            # Insert into logs table
+            cursor.execute("""
+                INSERT INTO logs (timestamp, level, component, message, correlation_id, extra)
+                VALUES (NOW(), %s, %s, %s, %s, %s)
+            """, (
+                "INFO" if new_status == "remediated" else "WARN",
+                "auto-remediation",
+                action_taken,
+                str(uuid.uuid4()),
+                json.dumps({"anomaly_id": anomaly_id, "details": details})
+            ))
 
-        if action_taken:
-            notify(f"✅ Auto-remediation: {action_taken}")
-        else:
-            notify(f"⚠️ No remediation applied for anomaly {anomaly_id}")
+            notify(f"⚡ {action_taken}")
+            conn.commit()
 
-    conn.commit()
+        except Exception as e:
+            cursor.execute("""
+                UPDATE anomalies SET status = 'error' WHERE anomaly_id = %s
+            """, (anomaly_id,))
+            conn.commit()
+            notify(f"❌ Error remediating anomaly {anomaly_id}: {e}")
+
     cursor.close()
     conn.close()
 
@@ -160,8 +163,8 @@ default_args = {
 with DAG(
     dag_id="auto_remediation",
     default_args=default_args,
-    description="Auto-remediate anomalies from anomaly_detection_v3",
-    schedule_interval="0 8 * * *",  # daily at 8 AM UTC (after anomaly detection at 7)
+    description="Auto-remediate anomalies using pluggable playbooks",
+    schedule_interval="0 8 * * *",  # daily at 8 AM UTC
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["finops", "auto-remediation"],

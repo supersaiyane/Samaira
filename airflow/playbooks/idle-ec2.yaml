@@ -1,0 +1,10 @@
+issue: "Idle Resource"
+service: "EC2"
+action: "stop_instance"
+params:
+  api: "ec2"
+  method: "stop_instances"
+  args:
+    InstanceIds:
+      - "{{ resource_id }}"
+  message: "Stopped idle EC2 instance"

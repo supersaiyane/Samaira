@@ -49,12 +49,13 @@ def generate_forecasts():
     conn = get_db_connection()
 
     query = """
-        SELECT a.account_name, s.service_name, b.account_id, b.service_id, b.usage_date, SUM(b.cost_amount) as cost
+        SELECT a.account_id, a.account_name, s.service_id, s.service_name,
+               b.usage_date, SUM(b.cost_amount) as cost
         FROM billing b
         JOIN accounts a ON b.account_id = a.account_id
         JOIN services s ON b.service_id = s.service_id
         WHERE usage_date >= CURRENT_DATE - INTERVAL '730 days'
-        GROUP BY a.account_name, s.service_name, b.account_id, b.service_id, b.usage_date
+        GROUP BY a.account_id, a.account_name, s.service_id, s.service_name, b.usage_date
         ORDER BY b.usage_date
     """
     billing = pd.read_sql(query, conn)
@@ -67,6 +68,8 @@ def generate_forecasts():
     results = []
 
     for (acct_id, svc_id), group in billing.groupby(["account_id", "service_id"]):
+        account_name = group["account_name"].iloc[0]
+        service_name = group["service_name"].iloc[0]
         df = group[["usage_date", "cost"]].rename(columns={"usage_date": "ds", "cost": "y"})
 
         if len(df) < 60:
@@ -126,19 +129,30 @@ def generate_forecasts():
         except Exception as e:
             print(f"⚠️ SMA failed for {acct_id}/{svc_id}: {e}")
 
-        # ---------- Store Forecasts ----------
+        # ---------- Store Forecasts with UPSERT ----------
         if best_forecast is not None:
             for horizon in [30, 90, 180]:
                 horizon_df = best_forecast.tail(horizon)
+
+                if best_model == "Prophet":
+                    lower = horizon_df["yhat_lower"].min()
+                    upper = horizon_df["yhat_upper"].max()
+                else:
+                    lower = horizon_df["yhat"].min()
+                    upper = horizon_df["yhat"].max()
+
                 avg_forecast = horizon_df["yhat"].sum()
-                lower = horizon_df["yhat"].min()
-                upper = horizon_df["yhat"].max()
 
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO forecasts (account_id, service_id, forecast_period_start, forecast_period_end,
-                                           forecast_amount, currency, model_used, confidence_interval)
-                    VALUES (%s, %s, %s, %s, %s, 'USD', %s, %s)
+                                           forecast_amount, currency, model_used, confidence_interval, generated_at)
+                    VALUES (%s, %s, %s, %s, %s, 'USD', %s, %s, NOW())
+                    ON CONFLICT (account_id, service_id, forecast_period_start, forecast_period_end)
+                    DO UPDATE SET forecast_amount = EXCLUDED.forecast_amount,
+                                  model_used = EXCLUDED.model_used,
+                                  confidence_interval = EXCLUDED.confidence_interval,
+                                  generated_at = NOW()
                 """, (
                     acct_id,
                     svc_id,
@@ -151,7 +165,7 @@ def generate_forecasts():
                 conn.commit()
                 cursor.close()
 
-            results.append((acct_id, svc_id, best_model, best_mape, best_rmse, avg_forecast))
+            results.append((account_name, service_name, best_model, best_mape, best_rmse, avg_forecast))
 
     conn.close()
 
@@ -159,7 +173,7 @@ def generate_forecasts():
     if results:
         lines = ["📈 Forecasts Generated:"]
         for acct, svc, model, mape, rmse, avg in results[:10]:  # top 10
-            lines.append(f"- Account {acct}, Service {svc}: ${avg:.2f} | Model={model}, MAPE={mape:.2f}, RMSE={rmse:.2f}")
+            lines.append(f"- {acct} / {svc}: ${avg:.2f} | Model={model}, MAPE={mape:.2f}, RMSE={rmse:.2f}")
         notify("\n".join(lines))
     else:
         notify("ℹ️ No forecasts generated.")
@@ -179,7 +193,7 @@ default_args = {
 with DAG(
     dag_id="cost_forecasting_v2",
     default_args=default_args,
-    description="Multi-model multi-horizon cost forecasting with accuracy tracking",
+    description="Multi-model multi-horizon cost forecasting with UPSERT + enriched notifications",
     schedule_interval="0 10 * * *",
     start_date=datetime(2024, 1, 1),
     catchup=False,

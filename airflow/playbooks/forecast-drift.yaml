@@ -1,0 +1,8 @@
+issue: "Forecast Drift"
+service: "ALL"
+action: "notify_only"
+params:
+  api: "none"
+  method: ""
+  args: {}
+  message: "⚠️ Forecast drift detected. FinOps team notified."
