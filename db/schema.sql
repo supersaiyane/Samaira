@@ -220,6 +220,21 @@ CREATE TABLE budgets (
 
 
 -- ========================
+-- 16. Insights (For ai-driven insights and reports)
+-- ========================
+CREATE TABLE insights (
+    insight_id SERIAL PRIMARY KEY,
+    account_id INT REFERENCES accounts(account_id),
+    service_id INT REFERENCES services(service_id),
+    insight_type VARCHAR(50),       -- trend, savings, idle, forecast_gap
+    severity VARCHAR(20),           -- info, warning, critical
+    message TEXT,
+    metadata JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+
+-- ========================
 -- Indexing (OLAP-friendly)
 -- ========================
 CREATE INDEX idx_billing_date_account_service ON billing (usage_date, account_id, service_id);
@@ -228,4 +243,7 @@ CREATE INDEX idx_recommendations_resource ON recommendations (resource_id);
 CREATE INDEX idx_anomalies_date_account ON anomalies (detected_at, account_id);
 CREATE INDEX idx_instance_family ON instance_catalog (family);
 CREATE INDEX idx_budgets_account_service ON budgets (account_id, service_id);
+CREATE INDEX idx_insights_account ON insights (account_id);
+CREATE INDEX idx_insights_service ON insights (service_id);
+CREATE INDEX idx_insights_type ON insights (insight_type);
 

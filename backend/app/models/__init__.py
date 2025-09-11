@@ -13,6 +13,7 @@ from app.models.logs import Log
 from app.models.unmapped_services import UnmappedService
 from app.models.instance_catalog import InstanceCatalog
 from app.models.budgets import Budget
+from app.models.insights import Insight
 
 # This makes Alembic autogenerate migrations correctly
 ALL_MODELS = [
@@ -32,4 +33,5 @@ ALL_MODELS = [
     UnmappedService,
     InstanceCatalog,
     Budget,
+    Insight,
 ]
