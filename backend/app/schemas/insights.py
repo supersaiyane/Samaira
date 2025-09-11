@@ -29,7 +29,13 @@ class TrendPoint(BaseModel):
     day: str
     count: int
 
+class AccountCount(BaseModel):
+    account_name: str
+    count: int
+
+
 class InsightSummary(BaseModel):
     by_severity: List[SeverityCount]
     top_services: List[ServiceCount]
     trend : List[TrendPoint]
+    top_accounts: List[AccountCount]    

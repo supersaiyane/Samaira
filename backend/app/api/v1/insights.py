@@ -20,6 +20,10 @@ async def get_insight(insight_id: int, db: AsyncSession = Depends(get_db)):
 @router.get("/summary", response_model=InsightSummary)
 async def insights_summary(
     days: int = Query(30, description="Lookback window in days"),
+    account_id: int | None = Query(None, description="Filter by account ID"),
+    service_id: int | None = Query(None, description="Filter by service ID"),
+    severity: str | None = Query(None, description="Filter by severity (info, warning, critical)"),
+    insight_type: str | None = Query(None, description="Filter by insight type (trend, savings, idle, forecast_gap)"),
     db: AsyncSession = Depends(get_db),
 ):
-    return await insights_service.insights_summary(db, days)
+    return await insights_service.insights_summary(db, days, account_id, service_id, severity, insight_type)
