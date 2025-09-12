@@ -1,6 +1,9 @@
 version: "3.9"
 
 services:
+  # =========================
+  # Database
+  # =========================
   db:
     image: postgres:15
     container_name: finops-db
@@ -13,8 +16,58 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Auto-init schema + seed data
       - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - ./db/init/01_init.sql:/docker-entrypoint-initdb.d/01_init.sql
+
+  # =========================
+  # Backend (FastAPI)
+  # =========================
+  backend:
+    build: ./app          # points to your FastAPI app Dockerfile
+    container_name: finops-backend
+    restart: always
+    env_file: .env
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    command: >
+      uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./app:/code/app   # optional: live reload in dev
+
+  # =========================
+  # Frontend (React)
+  # =========================
+  frontend:
+    build: ./frontend
+    container_name: finops-frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend:/code/frontend  # optional: hot reload
+
+  # =========================
+  # Airflow
+  # =========================
+  airflow:
+    image: apache/airflow:2.7.2
+    container_name: finops-airflow
+    restart: always
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags   # your custom DAGs
+      - ./airflow/logs:/opt/airflow/logs
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
 
 volumes:
   pgdata:

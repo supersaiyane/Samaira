@@ -1,0 +1,146 @@
+queries:
+  # ================= COST =================
+  - patterns:
+      - "top services"
+      - "highest cost"
+      - "rising costs"
+    sql: |
+      SELECT s.service_name, SUM(b.cost_amount) AS total_cost
+      FROM billing b
+      JOIN services s ON b.service_id = s.service_id
+      WHERE b.usage_date >= CURRENT_DATE - INTERVAL '{days} days'
+      GROUP BY s.service_name
+      ORDER BY total_cost DESC
+      LIMIT 5
+    summary: "Top 5 services by cost in last {days} days"
+    params:
+      days: 30
+
+  - patterns:
+      - "top accounts"
+      - "account spend"
+    sql: |
+      SELECT a.account_name, SUM(b.cost_amount) AS total_cost
+      FROM billing b
+      JOIN accounts a ON b.account_id = a.account_id
+      WHERE b.usage_date >= CURRENT_DATE - INTERVAL '{days} days'
+      GROUP BY a.account_name
+      ORDER BY total_cost DESC
+      LIMIT 5
+    summary: "Top 5 accounts by spend in last {days} days"
+    params:
+      days: 30
+
+  # ================= SAVINGS =================
+  - patterns:
+      - "total savings"
+      - "how much did we save"
+    sql: |
+      SELECT SUM(actual_savings) AS total_savings
+      FROM savings
+    summary: "Total realized savings so far"
+
+  - patterns:
+      - "ec2 savings"
+      - "ec2 rightsizing savings"
+    sql: |
+      SELECT SUM(s.actual_savings) AS total_savings
+      FROM savings s
+      JOIN resources r ON s.resource_id = r.resource_id
+      JOIN services sv ON r.service_id = sv.service_id
+      WHERE sv.service_name = 'EC2'
+    summary: "Total EC2 savings so far"
+
+  # ================= RECOMMENDATIONS =================
+  - patterns:
+      - "pending recommendations"
+      - "unapplied recommendations"
+    sql: |
+      SELECT r.rec_id, r.rec_type, r.estimated_savings, s.service_name
+      FROM recommendations r
+      JOIN resources rs ON r.resource_id = rs.resource_id
+      JOIN services s ON rs.service_id = s.service_id
+      WHERE r.status = 'pending'
+    summary: "Pending recommendations with estimated savings"
+
+  # ================= IDLE RESOURCES =================
+  - patterns:
+      - "idle resources"
+      - "unused resources"
+    sql: |
+      SELECT r.resource_name, SUM(b.cost_amount) AS total_cost
+      FROM billing b
+      JOIN resources r ON b.resource_id = r.resource_id
+      JOIN usage u ON r.resource_id = u.resource_id
+      WHERE u.metric_value < 1
+        AND b.usage_date >= CURRENT_DATE - INTERVAL '30 days'
+      GROUP BY r.resource_name
+      HAVING SUM(b.cost_amount) > 100
+    summary: "Idle resources costing more than $100 in last 30 days"
+
+  # ================= ANOMALIES =================
+  - patterns:
+      - "anomalies"
+      - "cost spikes"
+    sql: |
+      SELECT account_id, service_id, metric, deviation_percent, detected_at
+      FROM anomalies
+      WHERE detected_at >= CURRENT_DATE - INTERVAL '{days} days'
+      ORDER BY detected_at DESC
+      LIMIT 10
+    summary: "Recent anomalies in last {days} days"
+    params:
+      days: 30
+
+  # ================= BUDGETS =================
+  - patterns:
+      - "budget breaches"
+      - "over budget"
+    sql: |
+      SELECT b.budget_name, a.account_name, s.service_name, b.budget_limit
+      FROM budgets b
+      LEFT JOIN accounts a ON b.account_id = a.account_id
+      LEFT JOIN services s ON b.service_id = s.service_id
+      WHERE EXISTS (
+          SELECT 1 FROM billing bl
+          WHERE (bl.account_id = b.account_id OR b.account_id IS NULL)
+            AND (bl.service_id = b.service_id OR b.service_id IS NULL)
+            AND date_trunc('month', bl.usage_date) = date_trunc('month', CURRENT_DATE)
+          GROUP BY bl.account_id, bl.service_id
+          HAVING SUM(bl.cost_amount) > b.budget_limit
+      )
+    summary: "Budgets breached this month"
+
+  # ================= FORECASTS =================
+  - patterns:
+      - "forecast"
+      - "predicted spend"
+    sql: |
+      SELECT a.account_name, s.service_name, f.forecast_amount, f.forecast_period_end
+      FROM forecasts f
+      JOIN accounts a ON f.account_id = a.account_id
+      JOIN services s ON f.service_id = s.service_id
+      WHERE f.forecast_period_end >= CURRENT_DATE
+      ORDER BY f.forecast_period_end ASC
+    summary: "Upcoming forecasted spend by account/service"
+
+
+  - patterns:
+      - "account"
+      - "service"
+      - "spend"
+    sql: |
+      SELECT a.account_name, s.service_name, SUM(b.cost_amount) AS total_cost
+      FROM billing b
+      JOIN accounts a ON b.account_id = a.account_id
+      JOIN services s ON b.service_id = s.service_id
+      WHERE 1=1
+        {account_filter}
+        {service_filter}
+        {month_filter}
+        AND b.usage_date >= CURRENT_DATE - INTERVAL '{days} days'
+      GROUP BY a.account_name, s.service_name
+      ORDER BY total_cost DESC
+    summary: "Spend by account/service filtered by params"
+    params:
+      days: 30

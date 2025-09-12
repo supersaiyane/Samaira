@@ -198,3 +198,59 @@ class UnmappedService(Base):
     service_name = Column(String(255), nullable=False)
     first_seen = Column(TIMESTAMP, default=datetime.utcnow)
     last_seen = Column(TIMESTAMP, default=datetime.utcnow)
+
+
+# ========================
+# Instance Catalog
+# ========================
+class InstanceCatalog(Base):
+    __tablename__ = "instance_catalog"
+
+    id = Column(Integer, primary_key=True, index=True)
+    family = Column(String(50), nullable=False)
+    size = Column(String(50), nullable=False)
+    vcpu = Column(Integer)
+    memory_gb = Column(Numeric(10, 2))
+    region = Column(String(50))
+    price_per_hour = Column(Numeric(10, 4))
+    last_updated = Column(TIMESTAMP, default=datetime.utcnow)
+
+# ========================
+# Budgets
+# ========================
+class Budget(Base):
+    __tablename__ = "budgets"
+
+    budget_id = Column(Integer, primary_key=True, index=True)
+    budget_name = Column(String(100), nullable=False)
+    account_id = Column(Integer, ForeignKey("accounts.account_id"), nullable=True)
+    service_id = Column(Integer, ForeignKey("services.service_id"), nullable=True)
+    budget_limit = Column(Numeric(18, 6), nullable=False)
+    currency = Column(String(10), default="USD")
+    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+
+# ========================
+# Insights
+# ========================
+class Insight(Base):
+    __tablename__ = "insights"
+
+    insight_id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(Integer, ForeignKey("accounts.account_id"), nullable=True)
+    service_id = Column(Integer, ForeignKey("services.service_id"), nullable=True)
+    insight_type = Column(String(50))   # trend, savings, idle, forecast_gap
+    severity = Column(String(20))       # info, warning, critical
+    message = Column(String)
+    metadata = Column(JSON)
+    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+
+# ========================
+# AI Query Log
+# ========================
+class AIQueryLog(Base):
+    __tablename__ = "ai_queries_log"
+
+    log_id = Column(Integer, primary_key=True, index=True)
+    query_text = Column(Text, nullable=False)
+    status = Column(String(20), default="unsupported")  # supported, unsupported
+    created_at = Column(TIMESTAMP, default=datetime.utcnow)
