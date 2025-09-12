@@ -1,0 +1,54 @@
+{
+  "title": "FinOps Overview",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Total Cost (This Month)",
+      "targets": [{ "expr": "sum(increase(billing_cost_amount[30d]))" }]
+    },
+    {
+      "type": "stat",
+      "title": "Total Validated Savings (This Month)",
+      "targets": [{ "expr": "sum(increase(savings_actual_savings[30d]))" }]
+    },
+    {
+      "type": "gauge",
+      "title": "Anomalies Detected (30d)",
+      "targets": [{ "expr": "count_over_time(anomalies_detected[30d])" }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 5 },
+              { "color": "red", "value": 10 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Forecast vs Actual (30 Days)",
+      "targets": [
+        { "expr": "sum(increase(billing_cost_amount[30d]))", "legendFormat": "Actual" },
+        { "expr": "forecast_cost_30d", "legendFormat": "Forecast" }
+      ]
+    },
+    {
+      "type": "barchart",
+      "title": "Top 5 Services by Cost",
+      "targets": [
+        { "expr": "topk(5, sum by (service)(increase(billing_cost_amount[30d])))" }
+      ]
+    },
+    {
+      "type": "gauge",
+      "title": "FinOps Health Score",
+      "targets": [{ "expr": "finops_health_score" }]
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

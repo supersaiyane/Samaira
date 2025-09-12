@@ -1,0 +1,59 @@
+{
+  "title": "Budgets Dashboard",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "barchart",
+      "title": "Spend vs Budget (This Month, by Account)",
+      "targets": [
+        { "expr": "sum by (account)(billing_cost_amount_mtd)" },
+        { "expr": "budget_limit_mtd" }
+      ]
+    },
+    {
+      "type": "barchart",
+      "title": "Spend vs Budget (This Month, by Service)",
+      "targets": [
+        { "expr": "sum by (service)(billing_cost_amount_mtd)" },
+        { "expr": "budget_limit_service" }
+      ]
+    },
+    {
+      "type": "gauge",
+      "title": "Budget Breaches (30d)",
+      "targets": [{ "expr": "count_over_time(budget_breach_total[30d])" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "MTD Spend vs Budget Trend",
+      "targets": [
+        { "expr": "sum(increase(billing_cost_amount[1d]))", "legendFormat": "Spend" },
+        { "expr": "budget_limit_mtd", "legendFormat": "Budget" }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Top 5 Budget Breaches (This Month)",
+      "targets": [{ "expr": "topk(5, budget_breach_amount)" }]
+    },
+    {
+      "type": "gauge",
+      "title": "Budget Utilization Rate",
+      "targets": [{ "expr": "(billing_cost_amount_mtd / budget_limit_mtd) * 100" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "red", "value": 100 }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

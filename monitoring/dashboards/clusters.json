@@ -1,0 +1,49 @@
+{
+  "title": "Cluster Dashboard",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Cluster CPU Utilization (30d)",
+      "targets": [{ "expr": "avg by (cluster)(node_cpu_utilization)" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Cluster Memory Utilization (30d)",
+      "targets": [{ "expr": "avg by (cluster)(node_memory_utilization)" }]
+    },
+    {
+      "type": "barchart",
+      "title": "Cluster Cost (Monthly)",
+      "targets": [{ "expr": "sum by (cluster)(increase(billing_cost_amount[30d]))" }]
+    },
+    {
+      "type": "table",
+      "title": "Top 5 Expensive Clusters",
+      "targets": [{ "expr": "topk(5, sum by (cluster)(increase(billing_cost_amount[30d])))" }]
+    },
+    {
+      "type": "stat",
+      "title": "Node Rightsizing Opportunities",
+      "targets": [{ "expr": "rightsizing_recommendations_total{rec_type='Rightsize', service='EKS'}" }]
+    },
+    {
+      "type": "gauge",
+      "title": "Idle Clusters Detected",
+      "targets": [{ "expr": "count_over_time(anomaly_idle_resource_total{service='EKS'}[30d])" }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 2 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

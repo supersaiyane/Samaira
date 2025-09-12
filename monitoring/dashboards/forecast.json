@@ -1,0 +1,45 @@
+{
+  "title": "Forecast Dashboard",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Forecast vs Actual (30/90/180d)",
+      "targets": [
+        { "expr": "sum(increase(billing_cost_amount[1d]))", "legendFormat": "Actual" },
+        { "expr": "forecast_cost_30d", "legendFormat": "30d Forecast" },
+        { "expr": "forecast_cost_90d", "legendFormat": "90d Forecast" },
+        { "expr": "forecast_cost_180d", "legendFormat": "180d Forecast" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Forecast Drift (%)",
+      "targets": [{ "expr": "forecast_drift_percent" }]
+    },
+    {
+      "type": "table",
+      "title": "Forecast Accuracy (MAPE / RMSE by Model)",
+      "targets": [
+        { "expr": "forecast_accuracy_mape", "legendFormat": "{{model}} MAPE" },
+        { "expr": "forecast_accuracy_rmse", "legendFormat": "{{model}} RMSE" }
+      ]
+    },
+    {
+      "type": "barchart",
+      "title": "Top 5 Services by Forecast Cost",
+      "targets": [{ "expr": "topk(5, forecast_cost_service)" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Forecast Confidence Interval",
+      "targets": [
+        { "expr": "forecast_cost_30d", "legendFormat": "Forecast" },
+        { "expr": "forecast_cost_lower", "legendFormat": "Lower Bound" },
+        { "expr": "forecast_cost_upper", "legendFormat": "Upper Bound" }
+      ]
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

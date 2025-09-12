@@ -1,0 +1,53 @@
+{
+  "title": "Rightsizing & Savings",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "piechart",
+      "title": "Recommendations by Status",
+      "targets": [{ "expr": "count by (status)(recommendations_total)" }]
+    },
+    {
+      "type": "barchart",
+      "title": "Idle vs Rightsizing Recommendations",
+      "targets": [{ "expr": "count by (rec_type)(recommendations_total)" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Validated Savings (6m Trend)",
+      "targets": [{ "expr": "sum by (month)(increase(savings_actual_savings[30d]))" }]
+    },
+    {
+      "type": "barchart",
+      "title": "Estimated vs Actual Savings (per Service)",
+      "targets": [
+        { "expr": "sum(estimated_savings) by (service)", "legendFormat": "Estimated" },
+        { "expr": "sum(actual_savings) by (service)", "legendFormat": "Actual" }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Top 5 Resources by Savings",
+      "targets": [{ "expr": "topk(5, sum by (resource)(savings_actual_savings))" }]
+    },
+    {
+      "type": "gauge",
+      "title": "Savings Validation Rate",
+      "targets": [{ "expr": "validated_recs / applied_recs * 100" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "green", "value": 80 }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

@@ -1,0 +1,53 @@
+{
+  "title": "Ops Dashboard",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "API Latency (p95)",
+      "targets": [{ "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))" }]
+    },
+    {
+      "type": "gauge",
+      "title": "API Error Rate",
+      "targets": [{
+        "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m]))"
+      }]
+    },
+    {
+      "type": "barchart",
+      "title": "Airflow DAG Success vs Failures (Daily)",
+      "targets": [
+        { "expr": "sum(increase(airflow_dag_successes_total[1d]))", "legendFormat": "Success" },
+        { "expr": "sum(increase(airflow_dag_failures_total[1d]))", "legendFormat": "Failure" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Airflow Task Duration (avg, 30d)",
+      "targets": [{ "expr": "avg by (dag_id)(airflow_task_duration_seconds)" }]
+    },
+    {
+      "type": "logs",
+      "title": "Backend Logs (Errors/Warnings)",
+      "targets": [{ "expr": "{app=\"backend\"} |~ \"ERROR|WARN\"" }]
+    },
+    {
+      "type": "logs",
+      "title": "Airflow Logs (Errors/Failures)",
+      "targets": [{ "expr": "{app=\"airflow\"} |~ \"ERROR|FAILED\"" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Container CPU Usage",
+      "targets": [{ "expr": "sum(rate(container_cpu_usage_seconds_total[5m])) by (container)" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Container Memory Usage",
+      "targets": [{ "expr": "sum(container_memory_usage_bytes) by (container)" }]
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

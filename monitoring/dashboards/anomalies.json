@@ -1,0 +1,38 @@
+{
+  "title": "Anomalies Dashboard",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "piechart",
+      "title": "Anomalies by Severity (30d)",
+      "targets": [{ "expr": "count by (severity)(anomalies_detected_total[30d])" }]
+    },
+    {
+      "type": "barchart",
+      "title": "Cost Spike Anomalies (30d)",
+      "targets": [{ "expr": "count_over_time(anomaly_cost_spike_total[30d])" }]
+    },
+    {
+      "type": "barchart",
+      "title": "Usage Anomalies (CPU/Memory/Lambda, 30d)",
+      "targets": [{ "expr": "count_over_time(anomaly_usage_total[30d])" }]
+    },
+    {
+      "type": "stat",
+      "title": "Idle/Orphan Resources Detected (30d)",
+      "targets": [{ "expr": "count_over_time(anomaly_idle_resource_total[30d])" }]
+    },
+    {
+      "type": "table",
+      "title": "Top 5 Services by Anomalies (30d)",
+      "targets": [{ "expr": "topk(5, count by (service)(anomalies_detected_total[30d]))" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Anomaly Trend (90d)",
+      "targets": [{ "expr": "sum by (date)(anomalies_detected_total[1d])" }]
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

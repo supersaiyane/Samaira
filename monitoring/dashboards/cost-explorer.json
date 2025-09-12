@@ -1,0 +1,44 @@
+{
+  "title": "Cost Explorer",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Total Daily Cost (90d)",
+      "targets": [{ "expr": "sum by (date)(increase(billing_cost_amount[1d]))" }]
+    },
+    {
+      "type": "piechart",
+      "title": "Cost by Account (30d)",
+      "targets": [{ "expr": "sum by (account)(increase(billing_cost_amount[30d]))" }]
+    },
+    {
+      "type": "barchart",
+      "title": "Cost by Service (30d)",
+      "targets": [{ "expr": "sum by (service)(increase(billing_cost_amount[30d]))" }]
+    },
+    {
+      "type": "table",
+      "title": "Top 10 Resources by Cost (30d)",
+      "targets": [{ "expr": "topk(10, sum by (resource)(increase(billing_cost_amount[30d])))" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Usage vs Cost (Daily)",
+      "targets": [
+        { "expr": "sum by (service)(increase(billing_usage_quantity[1d]))", "legendFormat": "Usage" },
+        { "expr": "sum by (service)(increase(billing_cost_amount[1d]))", "legendFormat": "Cost" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Cost Trend Forecast (30d)",
+      "targets": [
+        { "expr": "sum(increase(billing_cost_amount[30d]))", "legendFormat": "Actual" },
+        { "expr": "forecast_cost_30d", "legendFormat": "Forecast" }
+      ]
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

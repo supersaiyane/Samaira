@@ -1,0 +1,50 @@
+{
+  "title": "AI Insights Dashboard",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Total AI Queries (30d)",
+      "targets": [{ "expr": "count_over_time(ai_queries_log_total[30d])" }]
+    },
+    {
+      "type": "piechart",
+      "title": "AI Queries by Status",
+      "targets": [{ "expr": "count by (status)(ai_queries_log_total[30d])" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "AI Queries Trend (90d)",
+      "targets": [{ "expr": "sum by (date)(ai_queries_log_total[1d])" }]
+    },
+    {
+      "type": "table",
+      "title": "Top 10 AI Queries",
+      "targets": [{ "expr": "topk(10, count by (query_text)(ai_queries_log_total[30d]))" }]
+    },
+    {
+      "type": "gauge",
+      "title": "AI Adoption Rate",
+      "targets": [{ "expr": "ai_queries_log_total / http_requests_total" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 30 },
+              { "color": "green", "value": 60 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Unsupported Queries Trend",
+      "targets": [{ "expr": "sum by (date)(ai_queries_log_total{status='unsupported'}[1d])" }]
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}
