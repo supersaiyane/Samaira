@@ -22,8 +22,28 @@ async def insights_summary(
     days: int = Query(30, description="Lookback window in days"),
     account_id: int | None = Query(None, description="Filter by account ID"),
     service_id: int | None = Query(None, description="Filter by service ID"),
-    severity: str | None = Query(None, description="Filter by severity (info, warning, critical)"),
-    insight_type: str | None = Query(None, description="Filter by insight type (trend, savings, idle, forecast_gap)"),
+    severity: str | None = Query(None, description="Filter by severity"),
+    insight_type: str | None = Query(None, description="Filter by insight type"),
     db: AsyncSession = Depends(get_db),
 ):
-    return await insights_service.insights_summary(db, days, account_id, service_id, severity, insight_type)
+    """
+    Aggregated summary for FinOps Overview Dashboard.
+    Returns:
+    - total_cost_mtd
+    - total_savings
+    - active_anomalies
+    - forecast_30d
+    - daily_trend
+    """
+    summary = await insights_service.insights_summary(
+        db, days, account_id, service_id, severity, insight_type
+    )
+
+    # Ensure shape for frontend
+    return {
+        "total_cost_mtd": float(summary.get("total_cost_mtd", 0)),
+        "total_savings": float(summary.get("total_savings", 0)),
+        "active_anomalies": int(summary.get("active_anomalies", 0)),
+        "forecast_30d": float(summary.get("forecast_30d", 0)),
+        "daily_trend": summary.get("daily_trend", []),
+    }

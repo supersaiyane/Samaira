@@ -33,9 +33,19 @@ class AccountCount(BaseModel):
     account_name: str
     count: int
 
+class DailyTrend(BaseModel):
+    date: str
+    cost: float
+
 
 class InsightSummary(BaseModel):
     by_severity: List[SeverityCount]
     top_services: List[ServiceCount]
     trend : List[TrendPoint]
     top_accounts: List[AccountCount]    
+    total_cost_mtd: float
+    total_savings: float
+    active_anomalies: int
+    forecast_30d: float
+    daily_trend: List[DailyTrend]
+
