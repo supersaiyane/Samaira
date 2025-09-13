@@ -197,6 +197,29 @@ services:
     depends_on:
       - finops-app
 
+  # =====================
+  # PlantUML Server
+  # =====================
+  plantuml:
+    image: plantuml/plantuml-server:jetty
+    container_name: plantuml-server
+    restart: unless-stopped
+    ports:
+      - "8082:8080"   # Access PlantUML at http://localhost:8082
+    environment:
+      - JAVA_OPTS=-Xmx512m
+
+
+  # =====================
+  # Mermaid Live Editor (mmdc CLI inside container)
+  # =====================
+  mermaid:
+    image: ghcr.io/mermaid-js/mermaid-live-editor:latest
+    container_name: mermaid-live-editor
+    restart: unless-stopped
+    ports:
+      - "8081:8080" 
+
 volumes:
   pgdata:
   grafana-data:
