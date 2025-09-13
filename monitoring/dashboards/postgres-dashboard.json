@@ -1,0 +1,45 @@
+{
+  "title": "Postgres Monitoring",
+  "uid": "postgres-dashboard",
+  "panels": [
+    {
+      "title": "Transactions Per Second (TPS)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(pg_stat_database_xact_commit[1m]) + rate(pg_stat_database_xact_rollback[1m])",
+          "legendFormat": "TPS"
+        }
+      ]
+    },
+    {
+      "title": "Cache Hit Ratio",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "sum(pg_stat_database_blks_hit) / (sum(pg_stat_database_blks_hit) + sum(pg_stat_database_blks_read))"
+        }
+      ]
+    },
+    {
+      "title": "Connection Usage",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "pg_stat_activity_count",
+          "legendFormat": "Connections"
+        }
+      ]
+    },
+    {
+      "title": "Slow Queries",
+      "type": "table",
+      "targets": [
+        {
+          "expr": "pg_stat_statements_mean_time",
+          "legendFormat": "{{query}}"
+        }
+      ]
+    }
+  ]
+}

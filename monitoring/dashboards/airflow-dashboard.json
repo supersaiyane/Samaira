@@ -1,0 +1,53 @@
+{
+  "title": "Airflow Monitoring",
+  "uid": "airflow-dashboard",
+  "panels": [
+    {
+      "title": "DAG Runs Success vs Failures",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(airflow_dag_run_successes_total[5m])",
+          "legendFormat": "Success"
+        },
+        {
+          "expr": "rate(airflow_dag_run_failures_total[5m])",
+          "legendFormat": "Failures"
+        }
+      ]
+    },
+    {
+      "title": "Task Duration Trends",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(airflow_task_duration_sum[5m]) / rate(airflow_task_duration_count[5m])",
+          "legendFormat": "Avg Duration"
+        }
+      ]
+    },
+    {
+      "title": "Running vs Queued Tasks",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "airflow_task_running",
+          "legendFormat": "Running"
+        },
+        {
+          "expr": "airflow_task_queued",
+          "legendFormat": "Queued"
+        }
+      ]
+    },
+    {
+      "title": "Scheduler Heartbeat",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "airflow_scheduler_heartbeat"
+        }
+      ]
+    }
+  ]
+}
