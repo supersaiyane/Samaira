@@ -16,9 +16,38 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # Optional: auto-init schema
       - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - ./db/init/01_init.sql:/docker-entrypoint-initdb.d/01_init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME} -h db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =========================
+  # Vault (Secrets Manager)
+  # =========================
+  vault:
+    image: vault:1.15.2
+    container_name: finops-vault
+    restart: always
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - "8200:8200"
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: root
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+    volumes:
+      - ./vault/config:/vault/config
+      - ./vault/policies:/vault/policies
+      - ./vault/data:/vault/data
+      - ./vault/setup.sh:/vault/setup.sh
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8200/v1/sys/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # =========================
   # FinOps App (Backend + Frontend + Airflow in one image)
@@ -29,16 +58,20 @@ services:
     restart: always
     env_file: .env
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
     ports:
       - "8000:8000"   # FastAPI backend
       - "3000:3000"   # React frontend
-      - "8080:8080"   # Airflow
+      - "8080:8080"   # Airflow UI
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
       - ./app:/app/app
       - ./frontend:/frontend
+      - ./scripts:/app/scripts   # to mount seed_instance_catalog.py
     environment:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
@@ -48,7 +81,15 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_REGION: ${AWS_REGION}
+      VAULT_ADDR: http://vault:8200
+      VAULT_ROLE_ID: ${VAULT_ROLE_ID}
+      VAULT_SECRET_ID: ${VAULT_SECRET_ID}
     entrypoint: ["/entrypoint.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "/healthcheck.sh || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   # =========================
   # Prometheus
@@ -115,7 +156,7 @@ services:
       - loki
 
   # =========================
-  # FastAPI Metrics (via /metrics endpoint)
+  # FastAPI Metrics Exporter
   # =========================
   backend-metrics:
     image: prom/prometheus-exporter-fastapi:latest
@@ -155,7 +196,6 @@ services:
       - "9112:9112"
     depends_on:
       - finops-app
-
 
 volumes:
   pgdata:

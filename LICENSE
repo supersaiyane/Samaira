@@ -1,0 +1,66 @@
+Copyright (c) 2025 Gurpreet Singh
+
+Permission is hereby granted, free of charge, to any individual, educational institution, research organization, or non-profit entity (collectively, "User") obtaining a copy of this software and associated documentation files (the "Software"), to use, reproduce, copy, modify, merge, publish, and distribute the Software, subject to the following terms and conditions:
+
+──────────────────────────────────────────────────────────────────────────────
+1. ATTRIBUTION REQUIREMENT
+──────────────────────────────────────────────────────────────────────────────
+All copies, modified versions, or substantial portions of the Software must include a prominent attribution to the original author:
+
+> Developed by Gurpreet Singh (https://github.com/supersaiyane)
+
+Attribution must remain visible in documentation, source headers, and any user interface (if applicable).
+
+──────────────────────────────────────────────────────────────────────────────
+2. NON-COMMERCIAL USE ONLY (ROYALTY-FREE)
+──────────────────────────────────────────────────────────────────────────────
+This license permits **royalty-free** use **only for non-commercial purposes**. Examples include:
+
+- Personal projects
+- Academic research
+- Educational use
+- Internal prototypes not monetized or distributed
+
+──────────────────────────────────────────────────────────────────────────────
+3. COMMERCIAL USE REQUIRES LICENSING
+──────────────────────────────────────────────────────────────────────────────
+Use of the Software in any **commercial context** — including but not limited to:
+
+- SaaS applications
+- Internal enterprise tooling deployed at scale
+- Products sold or monetized
+- Inclusion in consulting deliverables
+- Use within paid services or platforms
+
+— **requires a separate commercial license** and may be subject to royalty or usage-based agreements.
+
+To inquire about commercial use licensing or discuss terms, contact:
+
+📩 senghgurpreett@gmail.com
+
+──────────────────────────────────────────────────────────────────────────────
+4. NO TRANSFER OF OWNERSHIP
+──────────────────────────────────────────────────────────────────────────────
+This license does not grant any rights to claim ownership of the Software or its derivatives. All intellectual property rights remain with the original author.
+
+──────────────────────────────────────────────────────────────────────────────
+5. DISCLAIMER OF WARRANTY
+──────────────────────────────────────────────────────────────────────────────
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+IN NO EVENT SHALL THE AUTHOR OR COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+──────────────────────────────────────────────────────────────────────────────
+6. TERMINATION CLAUSE
+──────────────────────────────────────────────────────────────────────────────
+Any breach of the above terms, including use in a commercial setting without proper licensing, will result in **immediate termination of this license**. Continued use after termination may constitute infringement and be subject to legal remedy.
+
+──────────────────────────────────────────────────────────────────────────────
+7. JURISDICTION
+──────────────────────────────────────────────────────────────────────────────
+This License shall be governed and interpreted under the laws of India. Any disputes shall be subject to the jurisdiction of the courts in Indore, Madhya Pradesh.
+
+──────────────────────────────────────────────────────────────────────────────
+
+For clarity, if you're unsure whether your use case is commercial, **please reach out**.
+
