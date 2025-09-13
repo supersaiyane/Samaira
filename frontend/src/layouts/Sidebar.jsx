@@ -1,35 +1,55 @@
-import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
+import {
+  HomeIcon,
+  CurrencyDollarIcon,
+  LightBulbIcon,
+  ChartBarIcon,
+  ExclamationTriangleIcon,
+  ChartPieIcon,
+  ClipboardDocumentIcon,
+  ServerStackIcon,
+  ComputerDesktopIcon,
+  Cog6ToothIcon,
+  SparklesIcon,
+} from "@heroicons/react/24/outline";
 
-const links = [
-  { path: "/", label: "Overview" },
-  { path: "/cost-explorer", label: "Cost Explorer" },
-  { path: "/recommendations", label: "Recommendations" },
-  { path: "/savings", label: "Savings" },
-  { path: "/anomalies", label: "Anomalies" },
-  { path: "/forecasts", label: "Forecasts" },
-  { path: "/budgets", label: "Budgets" },
-  { path: "/clusters", label: "Clusters" },
-  { path: "/ec2", label: "EC2" },
-  { path: "/ops", label: "Ops" },
-  { path: "/ai-insights", label: "AI Insights" },
+const menuItems = [
+  { path: "/", label: "Overview", icon: HomeIcon },
+  { path: "/cost-explorer", label: "Cost Explorer", icon: CurrencyDollarIcon },
+  { path: "/recommendations", label: "Recommendations", icon: LightBulbIcon },
+  { path: "/savings", label: "Savings", icon: ChartBarIcon },
+  { path: "/anomalies", label: "Anomalies", icon: ExclamationTriangleIcon },
+  { path: "/forecasts", label: "Forecasts", icon: ChartPieIcon },
+  { path: "/budgets", label: "Budgets", icon: ClipboardDocumentIcon },
+  { path: "/clusters", label: "Clusters", icon: ServerStackIcon },
+  { path: "/ec2", label: "EC2 Utilization", icon: ComputerDesktopIcon },
+  { path: "/ops", label: "Ops Dashboard", icon: Cog6ToothIcon },
+  { path: "/ai-insights", label: "AI Insights", icon: SparklesIcon },
 ];
 
 function Sidebar() {
   return (
-    <aside className="w-64 bg-gray-800 text-gray-200 flex flex-col">
-      <div className="p-6 text-2xl font-bold">FinOps</div>
-      <nav className="flex-1 px-4">
-        {links.map((link) => (
-          <Link
-            key={link.path}
-            to={link.path}
-            className="block px-4 py-2 rounded hover:bg-gray-700"
+    <div className="w-64 bg-gray-900 text-white flex flex-col">
+      <div className="text-2xl font-bold p-6 border-b border-gray-800">
+        FinOps Toolkit
+      </div>
+      <nav className="flex-1 p-4">
+        {menuItems.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) =>
+              `flex items-center gap-3 p-2 rounded hover:bg-gray-700 ${
+                isActive ? "bg-gray-800 font-semibold" : ""
+              }`
+            }
           >
-            {link.label}
-          </Link>
+            <item.icon className="h-5 w-5" />
+            {item.label}
+          </NavLink>
         ))}
       </nav>
-    </aside>
+    </div>
   );
 }
 
