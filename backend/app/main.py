@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.api import v1   # clean import from api/__init__.py
+from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI(title="FinOps Toolkit API", version="1.0.0")
 
@@ -8,6 +9,10 @@ app = FastAPI(title="FinOps Toolkit API", version="1.0.0")
 async def root():
     return {"status": "ok", "service": "FinOps Toolkit API"}
 
+@app.on_event("startup")
+async def startup():
+    Instrumentator().instrument(app).expose(app)
+    
 # Register routers with prefixes
 app.include_router(v1.accounts.router, prefix="/api/v1/accounts", tags=["Accounts"])
 app.include_router(v1.services.router, prefix="/api/v1/services", tags=["Services"])
