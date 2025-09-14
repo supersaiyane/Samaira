@@ -1,0 +1,40 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    paths:
+      - "frontend/**"
+  pull_request:
+    paths:
+      - "frontend/**"
+
+jobs:
+  frontend-ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: frontend
+
+      - name: Run frontend tests
+        run: npm test -- --watchAll=false
+        working-directory: frontend
+
+      - name: Build React app
+        run: npm run build
+        working-directory: frontend
+
+      - name: Build & Push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}/frontend:latest

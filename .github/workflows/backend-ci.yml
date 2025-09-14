@@ -1,0 +1,55 @@
+name: Backend CI/CD
+
+on:
+  push:
+    paths:
+      - "app/**"
+  pull_request:
+    paths:
+      - "app/**"
+
+jobs:
+  backend-ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: finops
+          POSTGRES_PASSWORD: finops123
+          POSTGRES_DB: finopsdb
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U finops -d finopsdb"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r app/requirements.txt
+
+      - name: Run Alembic migrations
+        run: alembic upgrade head
+        working-directory: app
+
+      - name: Run backend tests
+        run: pytest -v
+        working-directory: app
+
+      - name: Build & Push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}/backend:latest

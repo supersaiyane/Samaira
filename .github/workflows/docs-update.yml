@@ -1,105 +1,30 @@
-name: Docs Update & Sync
+name: Docs Update → GitBook
 
 on:
   push:
+    branches:
+      - main
     paths:
-      - 'docs/**'
-      - '.github/workflows/docs-update.yml'
-  pull_request:
-    paths:
-      - 'docs/**'
-  workflow_dispatch:
+      - "docs/**"
 
 jobs:
   docs-update:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Setup Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Install GitBook CLI
+        run: npm install -g gitbook-cli
 
-      # 🔹 1. Lint Markdown for style
-      - name: Lint Markdown
-        uses: avto-dev/markdown-lint@v1
-        with:
-          config: '.markdownlint.json'
+      - name: Build Docs
+        run: gitbook build docs/ ./_book
 
-      # 🔹 2. Validate Mermaid/PlantUML blocks
-      - name: Validate Diagrams
-        run: |
-          if grep -R "```mermaid" docs/; then
-            echo "Found Mermaid diagrams – validating..."
-            npx @mermaid-js/mermaid-cli -i docs/06-workflow.md -o /tmp/test.svg || exit 1
-          fi
-          if grep -R "@startuml" docs/; then
-            echo "Found PlantUML diagrams – validating..."
-            docker run --rm -v $PWD:/workspace plantuml/plantuml -check docs/07-plantuml.md || exit 1
-          fi
-
-      # 🔹 3. Commit docs updates + changelog
-      - name: Commit docs updates
-        run: |
-          git add docs/
-          if git diff --cached --quiet; then
-            echo "No changes in docs to commit."
-          else
-            VERSION="v$(date +'%Y.%m.%d')-docs"
-            echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-            # Update CHANGELOG.md
-            echo "## $VERSION - $(date +'%Y-%m-%d')" >> tmp_changelog.md
-            echo "" >> tmp_changelog.md
-            git log -1 --pretty=format:"- %s (%an)" >> tmp_changelog.md
-            echo "" >> tmp_changelog.md
-            cat CHANGELOG.md >> tmp_changelog.md || true
-            mv tmp_changelog.md CHANGELOG.md
-
-            git add CHANGELOG.md
-            git commit -m "chore(docs): sync updates ($VERSION)"
-            git tag $VERSION
-            git push --follow-tags
-          fi
-
-      # 🔹 4. Sync with GitBook on push
-      - name: Trigger GitBook Sync
-        if: github.event_name == 'push'
-        run: |
-          curl -X POST https://api.gitbook.com/v1/spaces/${{ secrets.GITBOOK_SPACE_ID }}/content/sync \
-          -H "Authorization: Bearer ${{ secrets.GITBOOK_API_TOKEN }}"
-
-      # 🔹 5. Auto-generate GitHub Release Notes
-      - name: Create Release
-        if: env.VERSION != ''
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ env.VERSION }}
-          name: "Docs Update - ${{ env.VERSION }}"
-          body: |
-            ## 📘 Documentation Update
-            A new docs version has been published.
-
-            ### Changes since last release:
-            $(git log -1 --pretty=format:"%h %s (%an)")
-
-            🚀 Synced with GitBook Space: `${{ secrets.GITBOOK_SPACE_ID }}`
+      - name: Sync to GitBook
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # 🔹 6. Preview job for PRs
-  docs-preview:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Create GitBook Preview Link
+          GITBOOK_SPACE_ID: ${{ secrets.GITBOOK_SPACE_ID }}
+          GITBOOK_API_TOKEN: ${{ secrets.GITBOOK_API_TOKEN }}
         run: |
-          PREVIEW_URL="https://app.gitbook.com/o/${{ secrets.GITBOOK_ORG_ID }}/s/${{ secrets.GITBOOK_SPACE_ID }}/pulls/${{ github.event.pull_request.number }}"
-          echo "🔗 GitBook Preview: $PREVIEW_URL" >> $GITHUB_STEP_SUMMARY
+          curl -X POST "https://api.gitbook.com/v1/spaces/$GITBOOK_SPACE_ID/content/import" \
+            -H "Authorization: Bearer $GITBOOK_API_TOKEN" \
+            -F "content=@./_book"

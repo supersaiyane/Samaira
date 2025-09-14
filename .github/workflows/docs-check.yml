@@ -1,33 +1,23 @@
-name: Docs Freshness Check
+name: Docs Check
 
 on:
-  schedule:
-    - cron: "0 6 * * 1"   # every Monday 6 AM
-  workflow_dispatch:       # allow manual trigger
+  pull_request:
+    paths:
+      - "docs/**"
 
 jobs:
-  check-docs:
+  docs-check:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Check changes
-        id: detect
-        run: |
-          CHANGES=$(git log --since="7 days" --name-only)
-          echo "Changed files:"
-          echo "$CHANGES"
-          if [[ $CHANGES == *"backend"* || $CHANGES == *"frontend"* || $CHANGES == *"airflow"* ]]; then
-            echo "needs_update=true" >> $GITHUB_ENV
-          else
-            echo "needs_update=false" >> $GITHUB_ENV
-          fi
-
-      - name: Create GitHub Issue
-        if: env.needs_update == 'true'
-        uses: peter-evans/create-issue-from-file@v4
+      - name: Validate Markdown links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
         with:
-          title: "Docs outdated – update section(s)"
-          content-filepath: .github/DOCS_REMINDER.md
-          labels: documentation
+          folder-path: "docs"
+
+      - name: Validate Mermaid/PlantUML
+        run: |
+          npm install -g @mermaid-js/mermaid-cli
+          find docs -name "*.md" -exec mmdc -i {} -o /tmp/out.svg \;

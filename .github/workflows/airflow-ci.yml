@@ -1,0 +1,24 @@
+name: Airflow DAGs CI
+
+on:
+  push:
+    paths:
+      - "airflow/dags/**"
+
+jobs:
+  airflow-ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate DAG syntax
+        run: python -m py_compile $(find airflow/dags -name "*.py")
+
+      - name: Lint DAGs
+        run: pip install flake8 && flake8 airflow/dags
+
+      - name: List DAGs
+        run: |
+          pip install apache-airflow
+          airflow dags list
