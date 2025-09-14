@@ -13,8 +13,8 @@ airflow/dags/
 2\. DAG List
 ------------
 
- **#** | **DAG Name**             | **Purpose**                                                    | **** | **** | **** | **** | **** | **** | **** | **** 
--------|--------------------------|----------------------------------------------------------------|------|------|------|------|------|------|------|------
+ **#** | **DAG Name**             | **Purpose**                                                    
+-------|--------------------------|----------------------------------------------------------------
  1     | billing_ingest           | Collect AWS Cost Explorer billing data     
  2     | usage_ingest             | Collect CloudWatch metrics for EC2, ECS, EKS, Lambda
  3     | rightsizing              | Detect idle/underutilized resources, generate recommendations

@@ -154,9 +154,69 @@ Query logs in Grafana → Explore → Loki.
 *   **Forecast Drift** → trigger re-training job.
     
 *   **Vault Down** → switch to backup cluster.
-    
 
-10\. Knowledge Check
+
+### Vault
+
+Enable audit logs & snapshots:
+
+```
+vault operator raft snapshot save vault-backup.snap
+vault operator raft snapshot restore vault-backup.snap
+
+```
+
+### Airflow Metadata
+
+Stored in same **Postgres DB** (included in pg\_dump).
+
+10\. Disaster Recovery (DR)
+--------------------------
+
+1.  **DB Replication**: enable **RDS Multi-AZ** or streaming replication.
+    
+2.  **Vault Unseal Keys**: securely store with ops team.
+    
+3.  **Airflow DAGs**: kept in Git repo (infra as code).
+    
+4.  **Restore Flow**:
+    
+    *   Bring up DB from snapshot.
+        
+    *   Restore Vault snapshot.
+        
+    *   Redeploy app containers.
+        
+    *   Sync DAGs from Git.
+
+
+11\. Automation Tasks
+--------------------
+
+*   **Daily DAGs**:
+    
+    *   billing\_ingest
+        
+    *   usage\_ingest
+        
+    *   rightsizing
+        
+    *   anomaly\_detection
+        
+*   **Weekly DAGs**:
+    
+    *   instance\_catalog\_updater
+        
+    *   forecasting
+        
+*   **Monthly Ops**:
+    
+    *   Rotate AWS + DB creds in Vault.
+        
+    *   Validate DR runbook.
+
+
+12\. Knowledge Check
 --------------------
 
 1.  What executor is used to scale Airflow beyond one node?
