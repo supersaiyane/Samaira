@@ -12,6 +12,12 @@ from prophet import Prophet
 from statsmodels.tsa.arima.model import ARIMA
 from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error
 
+# 🔹 New: LSTM imports
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+from sklearn.preprocessing import MinMaxScaler
+
 # =========================
 # DB Connection Helper
 # =========================
@@ -41,6 +47,55 @@ def notify(message):
             "text": message,
         }
         requests.post(teams_url, json=payload)
+
+# =========================
+# LSTM Forecaster Helper
+# =========================
+def lstm_forecast(train, test, horizon=180, look_back=30):
+    scaler = MinMaxScaler(feature_range=(0,1))
+    series = scaler.fit_transform(train["y"].values.reshape(-1,1))
+
+    # Build sequences
+    X, y = [], []
+    for i in range(len(series) - look_back):
+        X.append(series[i:i+look_back])
+        y.append(series[i+look_back])
+    X, y = np.array(X), np.array(y)
+
+    # Reshape for LSTM [samples, timesteps, features]
+    X = np.reshape(X, (X.shape[0], X.shape[1], 1))
+
+    # Model
+    model = Sequential()
+    model.add(LSTM(50, return_sequences=True, input_shape=(look_back, 1)))
+    model.add(Dropout(0.2))
+    model.add(LSTM(50, return_sequences=False))
+    model.add(Dense(1))
+    model.compile(optimizer="adam", loss="mse")
+
+    # Fit
+    model.fit(X, y, epochs=20, batch_size=16, verbose=0)
+
+    # Forecast future
+    last_seq = series[-look_back:]
+    preds = []
+    for _ in range(horizon):
+        X_input = last_seq.reshape((1, look_back, 1))
+        pred = model.predict(X_input, verbose=0)[0][0]
+        preds.append(pred)
+        last_seq = np.append(last_seq[1:], pred)
+
+    preds = scaler.inverse_transform(np.array(preds).reshape(-1,1)).flatten()
+
+    # Build forecast df
+    forecast_index = pd.date_range(start=train["ds"].iloc[-1], periods=horizon, freq="D")
+    forecast = pd.DataFrame({"ds": forecast_index, "yhat": preds})
+
+    # Evaluate
+    mape = mean_absolute_percentage_error(test["y"].values, forecast.head(len(test))["yhat"].values)
+    rmse = np.sqrt(mean_squared_error(test["y"].values, forecast.head(len(test))["yhat"].values))
+
+    return forecast, mape, rmse
 
 # =========================
 # Forecasting Logic
@@ -114,7 +169,7 @@ def generate_forecasts():
         except Exception as e:
             print(f"⚠️ ARIMA failed for {acct_id}/{svc_id}: {e}")
 
-        # ---------- Model 3: SMA (baseline) ----------
+        # ---------- Model 3: SMA ----------
         try:
             sma = train["y"].rolling(window=7).mean().iloc[-1]
             forecast_vals = [sma] * 180
@@ -129,18 +184,19 @@ def generate_forecasts():
         except Exception as e:
             print(f"⚠️ SMA failed for {acct_id}/{svc_id}: {e}")
 
-        # ---------- Store Forecasts with UPSERT ----------
+        # ---------- Model 4: LSTM ----------
+        try:
+            forecast, mape, rmse = lstm_forecast(train, test, horizon=180, look_back=30)
+            if mape < best_mape:
+                best_model, best_mape, best_rmse, best_forecast = "LSTM", mape, rmse, forecast
+        except Exception as e:
+            print(f"⚠️ LSTM failed for {acct_id}/{svc_id}: {e}")
+
+        # ---------- Store Forecasts ----------
         if best_forecast is not None:
             for horizon in [30, 90, 180]:
                 horizon_df = best_forecast.tail(horizon)
-
-                if best_model == "Prophet":
-                    lower = horizon_df["yhat_lower"].min()
-                    upper = horizon_df["yhat_upper"].max()
-                else:
-                    lower = horizon_df["yhat"].min()
-                    upper = horizon_df["yhat"].max()
-
+                lower, upper = horizon_df["yhat"].min(), horizon_df["yhat"].max()
                 avg_forecast = horizon_df["yhat"].sum()
 
                 cursor = conn.cursor()
@@ -172,7 +228,7 @@ def generate_forecasts():
     # Notifications
     if results:
         lines = ["📈 Forecasts Generated:"]
-        for acct, svc, model, mape, rmse, avg in results[:10]:  # top 10
+        for acct, svc, model, mape, rmse, avg in results[:10]:
             lines.append(f"- {acct} / {svc}: ${avg:.2f} | Model={model}, MAPE={mape:.2f}, RMSE={rmse:.2f}")
         notify("\n".join(lines))
     else:
@@ -191,13 +247,13 @@ default_args = {
 }
 
 with DAG(
-    dag_id="cost_forecasting_v2",
+    dag_id="cost_forecasting_v3",
     default_args=default_args,
-    description="Multi-model multi-horizon cost forecasting with UPSERT + enriched notifications",
+    description="Multi-model (Prophet, ARIMA, SMA, LSTM) cost forecasting with UPSERT",
     schedule_interval="0 10 * * *",
     start_date=datetime(2024, 1, 1),
     catchup=False,
-    tags=["finops", "forecast", "v2"],
+    tags=["finops", "forecast", "v3"],
 ) as dag:
 
     forecast = PythonOperator(
