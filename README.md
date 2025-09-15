@@ -90,11 +90,11 @@ Samaira follows **Domain-Driven Design (DDD)** and **modular clean architecture*
 ┌────────┴─────┐                         ┌──────────┴─────────┐
 │ Prometheus   │                         │ Infracost + OPA    │
 │ + Exporters  │                         │ Pre-deploy guardrails
-└──────┬───────┘                         │  GitOps/CLI Hooks   │
-       │                                └──────────┬─────────┘
+└──────┬───────┘                         │  GitOps/CLI Hooks  │
+       │                                 └──────────┬─────────┘
        │                                ┌──────────▼─────────┐
        │                                │ Kubernetes / ECS   │
-       │                                │ Cluster Metadata    │
+       │                                │ Cluster Metadata   │
        │                                └────────────────────┘
        ▼
 ┌───────────────┐
