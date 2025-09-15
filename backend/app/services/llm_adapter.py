@@ -1,7 +1,7 @@
 import os
+import httpx
 from app.core.config import settings
 
-# Optional imports (load only if needed)
 try:
     from openai import AsyncOpenAI
 except ImportError:
@@ -12,7 +12,6 @@ try:
 except ImportError:
     anthropic = None
 
-import httpx
 
 class LLMAdapter:
     def __init__(self):
@@ -56,7 +55,7 @@ class LLMAdapter:
         prompt = self._build_prompt(nl_query, db_schema)
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                "http://localhost:11434/api/generate",
+                "http://ollama:11434/api/generate",   # ✅ use service name instead of localhost
                 json={"model": self.model, "prompt": prompt}
             )
             data = resp.json()
