@@ -1,77 +1,21 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
-from app.models.ai_queries_log import AIQueryLog
-from sqlalchemy.ext.asyncio import AsyncSession
-import re
-import datetime
 import os
+import re
 import yaml
-
-async def process_query(db: AsyncSession, nl_query: str):
-    nlq = nl_query.lower()
-    sql = None
-    summary = None
-
-    # --- Examples ---
-    if "top" in nlq and "services" in nlq and "cost" in nlq:
-        days = 30
-        match = re.search(r"last (\d+) days", nlq)
-        if match:
-            days = int(match.group(1))
-
-        sql = f"""
-            SELECT s.service_name, SUM(b.cost_amount) AS total_cost
-            FROM billing b
-            JOIN services s ON b.service_id = s.service_id
-            WHERE b.usage_date >= CURRENT_DATE - INTERVAL '{days} days'
-            GROUP BY s.service_name
-            ORDER BY total_cost DESC
-            LIMIT 5
-        """
-        summary = f"Top 5 services by cost in last {days} days"
-
-    elif "savings" in nlq and "ec2" in nlq:
-        sql = """
-            SELECT SUM(s.actual_savings) AS total_savings
-            FROM savings s
-            JOIN resources r ON s.resource_id = r.resource_id
-            JOIN services sv ON r.service_id = sv.service_id
-            WHERE sv.service_name = 'EC2'
-        """
-        summary = "Total EC2 savings so far"
-
-    elif "idle" in nlq and "resources" in nlq:
-        sql = """
-            SELECT r.resource_name, SUM(b.cost_amount) AS total_cost
-            FROM billing b
-            JOIN resources r ON b.resource_id = r.resource_id
-            JOIN usage u ON r.resource_id = u.resource_id
-            WHERE u.metric_value < 1
-              AND b.usage_date >= CURRENT_DATE - INTERVAL '30 days'
-            GROUP BY r.resource_name
-            HAVING SUM(b.cost_amount) > 100
-        """
-        summary = "Idle resources costing more than $100 in last 30 days"
-
-    else:
-        return {
-            "query": nl_query,
-            "sql": None,
-            "result": None,
-            "summary": "❓ Query type not supported yet"
-        }
-
-    result = await db.execute(text(sql))
-    rows = result.mappings().all()
-
-    return {
-        "query": nl_query,
-        "sql": sql,
-        "result": rows,
-        "summary": summary
-    }
+import datetime
+import sqlparse
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.ai_queries_log import AIQueryLog
+from openai import AsyncOpenAI
+from app.services.llm_adapter import LLMAdapter
+from app.core.config import settings
 
 
+llm = LLMAdapter()
+
+# ==============================
+# Load AI Queries (from YAML)
+# ==============================
 def load_ai_queries():
     path = os.getenv("AI_QUERIES_FILE", "config/ai_queries.yaml")
     with open(path, "r") as f:
@@ -79,7 +23,9 @@ def load_ai_queries():
 
 AI_QUERIES = load_ai_queries()
 
-
+# ==============================
+# Build Dynamic Filters
+# ==============================
 def build_filters(nlq: str):
     filters = {"account_filter": "", "service_filter": "", "month_filter": ""}
     params = {}
@@ -97,51 +43,190 @@ def build_filters(nlq: str):
         params["service_name"] = f"%{svc_match.group(1)}%"
 
     # Month filter
-    month_match = re.search(r"(january|february|march|april|may|june|july|august|september|october|november|december)", nlq)
+    month_match = re.search(
+        r"(january|february|march|april|may|june|july|august|september|october|november|december)",
+        nlq,
+    )
     if month_match:
         month_str = month_match.group(1).capitalize()
-        filters["month_filter"] = "AND date_trunc('month', b.usage_date) = date_trunc('month', DATE :month_start)"
-        params["month_start"] = datetime.strptime(month_str, "%B").date().replace(day=1)
+        filters["month_filter"] = (
+            "AND date_trunc('month', b.usage_date) = date_trunc('month', DATE :month_start)"
+        )
+        params["month_start"] = datetime.datetime.strptime(month_str, "%B").date().replace(day=1)
 
     return filters, params
 
 
+# ==============================
+# Schema Introspection
+# ==============================
+async def get_db_schema(db: AsyncSession) -> str:
+    q = """
+    SELECT table_name, column_name, data_type
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+    ORDER BY table_name, ordinal_position;
+    """
+    result = await db.execute(text(q))
+    rows = result.all()
+    schema = {}
+    for table, col, dtype in rows:
+        schema.setdefault(table, []).append(f"{col} ({dtype})")
+    return "\n".join([f"{t}: {', '.join(cols)}" for t, cols in schema.items()])
+
+
+# ==============================
+# LLM SQL Generator
+# ==============================
+client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+async def generate_sql_with_llm(nl_query: str, db_schema: str) -> str:
+    prompt = f"""
+    Convert this natural language request into a SAFE SQL query.
+    Schema:
+    {db_schema}
+
+    Rules:
+    - Only SELECT queries are allowed.
+    - Always include LIMIT 100 if not specified.
+    - No DELETE, DROP, UPDATE, INSERT, or ALTER.
+
+    Question: {nl_query}
+    """
+    resp = await client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return resp.choices[0].message.content.strip()
+
+
+# ==============================
+# Guardrails
+# ==============================
+def is_safe_sql(sql: str) -> bool:
+    parsed = sqlparse.parse(sql)
+    for stmt in parsed:
+        if stmt.get_type() != "SELECT":
+            return False
+    return True
+
+
+# ==============================
+# Main Query Processor
+# ==============================
+# ==============================
+# Main Query Processor
+# ==============================
+# ==============================
+# Main Query Processor
+# ==============================
 async def process_query(db: AsyncSession, nl_query: str):
     nlq = nl_query.lower()
-    sql, summary = None, None
-    params = {}
+    sql, summary, params, source = None, None, {}, None
 
+    # --- Step 1: Try YAML queries ---
     for q in AI_QUERIES:
         if any(p in nlq for p in q["patterns"]):
             sql = q["sql"]
             summary = q.get("summary", "")
             params = q.get("params", {})
+            source = "yaml"
             break
 
+    # --- Step 2: If no YAML match → LLM fallback ---
+    if not sql and settings.USE_LLM_FALLBACK:
+        try:
+            schema = await get_db_schema(db)
+            sql = await llm.generate_sql(nl_query, schema)  # primary provider
+            if sql and is_safe_sql(sql):
+                source = "llm"
+                summary = "Dynamic AI-generated answer"
+            else:
+                # Unsafe or empty SQL
+                log_entry = AIQueryLog(
+                    query_text=nl_query,
+                    sql_generated=sql,
+                    status="unsafe"
+                )
+                db.add(log_entry)
+                await db.commit()
+                return {
+                    "query": nl_query,
+                    "sql": sql,
+                    "result": None,
+                    "summary": "🚫 Unsafe query blocked",
+                }
+        except Exception as e:
+            # --- Step 2a: Try Ollama fallback ---
+            try:
+                schema = await get_db_schema(db)
+                os.environ["LLM_PROVIDER"] = "ollama"
+                ollama_llm = LLMAdapter()  # re-init with Ollama
+                sql = await ollama_llm.generate_sql(nl_query, schema)
+                if sql and is_safe_sql(sql):
+                    source = "ollama"
+                    summary = "Dynamic AI-generated answer (Ollama fallback)"
+                else:
+                    log_entry = AIQueryLog(
+                        query_text=nl_query,
+                        sql_generated=sql,
+                        status="unsafe"
+                    )
+                    db.add(log_entry)
+                    await db.commit()
+                    return {
+                        "query": nl_query,
+                        "sql": sql,
+                        "result": None,
+                        "summary": "🚫 Unsafe query blocked (Ollama fallback)",
+                    }
+            except Exception as e2:
+                # If Ollama also fails → mark as llm_failed
+                log_entry = AIQueryLog(
+                    query_text=nl_query,
+                    sql_generated=None,
+                    status="llm_failed"
+                )
+                db.add(log_entry)
+                await db.commit()
+                return {
+                    "query": nl_query,
+                    "sql": None,
+                    "result": None,
+                    "summary": f"⚠️ LLM + Ollama fallback failed: {str(e2)}",
+                }
+
+    # --- Step 3: If still no SQL ---
     if not sql:
-                # Log unsupported query
-        log_entry = AIQueryLog(query_text=nl_query, status="unsupported")
+        log_entry = AIQueryLog(
+            query_text=nl_query,
+            sql_generated=None,
+            status="unsupported"
+        )
         db.add(log_entry)
         await db.commit()
-        
         return {
             "query": nl_query,
             "sql": None,
             "result": None,
-            "summary": "❓ Query not supported yet"
+            "summary": "❓ Query not supported yet",
         }
 
-    # Dynamic placeholder substitution
+    # --- Step 4: Apply filters & params ---
     filters, dynamic_params = build_filters(nlq)
     sql = sql.format(**filters, **params)
-    summary = summary.format(**params)
     params.update(dynamic_params)
 
+    # --- Step 5: Execute SQL ---
     result = await db.execute(text(sql), params)
     rows = result.mappings().all()
 
-        # Log supported query
-    log_entry = AIQueryLog(query_text=nl_query, status="supported")
+    # --- Step 6: Log successful query ---
+    log_entry = AIQueryLog(
+        query_text=nl_query,
+        sql_generated=sql,
+        status=source or "yaml"
+    )
     db.add(log_entry)
     await db.commit()
 
@@ -149,6 +234,161 @@ async def process_query(db: AsyncSession, nl_query: str):
         "query": nl_query,
         "sql": sql,
         "result": rows,
-        "summary": summary
+        "summary": summary,
     }
 
+    nlq = nl_query.lower()
+    sql, summary, params, source = None, None, {}, None
+
+    # --- Step 1: Try YAML queries ---
+    for q in AI_QUERIES:
+        if any(p in nlq for p in q["patterns"]):
+            sql = q["sql"]
+            summary = q.get("summary", "")
+            params = q.get("params", {})
+            source = "yaml"
+            break
+
+    # --- Step 2: If no YAML match → LLM fallback ---
+    if not sql and settings.USE_LLM_FALLBACK:
+        try:
+            schema = await get_db_schema(db)
+            sql = await llm.generate_sql(nl_query, schema)
+            if sql and is_safe_sql(sql):
+                source = "llm"
+                summary = "Dynamic AI-generated answer"
+            else:
+                # Unsafe or empty SQL
+                log_entry = AIQueryLog(
+                    query_text=nl_query,
+                    sql_generated=sql,
+                    status="unsafe"
+                )
+                db.add(log_entry)
+                await db.commit()
+                return {
+                    "query": nl_query,
+                    "sql": sql,
+                    "result": None,
+                    "summary": "🚫 Unsafe query blocked",
+                }
+        except Exception as e:
+            # LLM failed, fallback gracefully
+            log_entry = AIQueryLog(
+                query_text=nl_query,
+                sql_generated=None,
+                status="llm_failed"
+            )
+            db.add(log_entry)
+            await db.commit()
+            return {
+                "query": nl_query,
+                "sql": None,
+                "result": None,
+                "summary": f"⚠️ LLM fallback failed: {str(e)}",
+            }
+
+    # --- Step 3: If still no SQL ---
+    if not sql:
+        log_entry = AIQueryLog(
+            query_text=nl_query,
+            sql_generated=None,
+            status="unsupported"
+        )
+        db.add(log_entry)
+        await db.commit()
+        return {
+            "query": nl_query,
+            "sql": None,
+            "result": None,
+            "summary": "❓ Query not supported yet",
+        }
+
+    # --- Step 4: Apply filters & params ---
+    filters, dynamic_params = build_filters(nlq)
+    sql = sql.format(**filters, **params)
+    params.update(dynamic_params)
+
+    # --- Step 5: Execute SQL ---
+    result = await db.execute(text(sql), params)
+    rows = result.mappings().all()
+
+    # --- Step 6: Log successful query ---
+    log_entry = AIQueryLog(
+        query_text=nl_query,
+        sql_generated=sql,
+        status=source or "yaml"
+    )
+    db.add(log_entry)
+    await db.commit()
+
+    return {
+        "query": nl_query,
+        "sql": sql,
+        "result": rows,
+        "summary": summary,
+    }
+
+    nlq = nl_query.lower()
+    sql, summary, params, source = None, None, {}, None
+
+    # --- Step 1: Try YAML queries ---
+    for q in AI_QUERIES:
+        if any(p in nlq for p in q["patterns"]):
+            sql = q["sql"]
+            summary = q.get("summary", "")
+            params = q.get("params", {})
+            source = "yaml"
+            break
+
+    # --- Step 2: If no YAML match → LLM ---
+
+
+    if not sql and settings.USE_LLM_FALLBACK:
+            schema = await get_db_schema(db)  
+    sql = await llm.generate_sql(nl_query, schema) 
+    source = "llm"
+    summary = "Dynamic AI-generated answer"
+    
+    if not sql:
+        schema = await get_db_schema(db)
+        sql = await generate_sql_with_llm(nl_query, schema)
+
+        if not is_safe_sql(sql):
+            log_entry = AIQueryLog(query_text=nl_query, status="unsafe")
+            db.add(log_entry)
+            await db.commit()
+            return {
+                "query": nl_query,
+                "sql": sql,
+                "result": None,
+                "summary": "🚫 Unsafe query blocked",
+            }
+
+        summary = "Dynamic AI-generated answer"
+        source = "llm"
+
+    # --- Step 3: Apply filters & params ---
+    filters, dynamic_params = build_filters(nlq)
+    sql = sql.format(**filters, **params)
+    params.update(dynamic_params)
+
+    # --- Step 4: Execute SQL ---
+    result = await db.execute(text(sql), params)
+    rows = result.mappings().all()
+
+    # --- Step 5: Log query ---
+    log_entry = log_entry = AIQueryLog(
+    query_text=nl_query,
+    sql_generated=sql,
+    status=source or "unsupported"
+)
+    db.add(log_entry)
+    await db.commit()
+
+    return {
+        "query": nl_query,
+        "sql": sql,
+        "result": rows,
+        "summary": summary,
+    }

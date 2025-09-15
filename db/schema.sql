@@ -235,6 +235,18 @@ CREATE TABLE insights (
 
 
 -- ========================
+-- 17. AI Queries Log (NL → SQL history)
+-- ========================
+CREATE TABLE ai_queries_log (
+    id SERIAL PRIMARY KEY,
+    query_text TEXT NOT NULL,          -- natural language query
+    sql_generated TEXT,                -- SQL we built/generated
+    status VARCHAR(50) NOT NULL,       -- yaml | llm | unsafe | unsupported
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+
+-- ========================
 -- Indexing (OLAP-friendly)
 -- ========================
 CREATE INDEX idx_billing_date_account_service ON billing (usage_date, account_id, service_id);
@@ -246,4 +258,6 @@ CREATE INDEX idx_budgets_account_service ON budgets (account_id, service_id);
 CREATE INDEX idx_insights_account ON insights (account_id);
 CREATE INDEX idx_insights_service ON insights (service_id);
 CREATE INDEX idx_insights_type ON insights (insight_type);
+CREATE INDEX idx_aiqueries_status ON ai_queries_log (status);
+CREATE INDEX idx_aiqueries_created_at ON ai_queries_log (created_at);
 

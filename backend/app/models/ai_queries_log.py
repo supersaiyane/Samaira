@@ -1,11 +1,12 @@
-from sqlalchemy import Column, Integer, String, Text, TIMESTAMP
+from sqlalchemy import Column, Integer, String, Text, DateTime
 from sqlalchemy.sql import func
-from app.core.db import Base
+from app.db.base_class import Base  # assuming you have Base defined here
 
 class AIQueryLog(Base):
     __tablename__ = "ai_queries_log"
 
-    log_id = Column(Integer, primary_key=True, index=True)
-    query_text = Column(Text, nullable=False)
-    status = Column(String(20), default="unsupported")
-    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    id = Column(Integer, primary_key=True, index=True)
+    query_text = Column(Text, nullable=False)          # original NL query
+    sql_generated = Column(Text, nullable=True)        # SQL used/generated
+    status = Column(String(50), nullable=False)        # yaml | llm | unsafe | unsupported
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
