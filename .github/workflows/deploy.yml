@@ -1,0 +1,27 @@
+name: Deploy via ArgoCD
+
+on:
+  workflow_run:
+    workflows: ["Backend CI/CD", "Frontend CI/CD", "Airflow DAGs CI"]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: ArgoCD CLI Login
+        run: |
+          argocd login ${{ secrets.ARGOCD_SERVER }} \
+            --username ${{ secrets.ARGOCD_USERNAME }} \
+            --password ${{ secrets.ARGOCD_PASSWORD }} \
+            --insecure
+
+      - name: Sync all applications
+        run: |
+          argocd app sync finops-backend
+          argocd app sync finops-frontend
+          argocd app sync finops-airflow
+          argocd app sync finops-monitoring

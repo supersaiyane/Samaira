@@ -1,0 +1,11 @@
+{
+  "name": "finops-docs",
+  "private": true,
+  "scripts": {
+    "build": "honkit build ./ ./_book",
+    "serve": "honkit serve ./ --port 4000"
+  },
+  "dependencies": {
+    "honkit": "^5.0.0"
+  }
+}

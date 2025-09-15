@@ -220,6 +220,18 @@ services:
     ports:
       - "8081:8080" 
 
+  # =========================
+  # Honkit for Documentation
+  # =========================
+  docs:
+    build: ./docs
+    container_name: finops-docs
+    restart: always
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./docs:/docs
+
 volumes:
   pgdata:
   grafana-data:
