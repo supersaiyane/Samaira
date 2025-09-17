@@ -245,6 +245,17 @@ CREATE TABLE ai_queries_log (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ========================
+-- 18. Cluster Status (extension of clusters table)
+-- ========================
+ALTER TABLE clusters
+ADD COLUMN status VARCHAR(20) DEFAULT 'active'; -- active, degraded, inactive
+
+-- ========================
+-- 19. Budgets – add spent_amount
+-- ========================
+ALTER TABLE budgets
+ADD COLUMN spent_amount NUMERIC(18,6) DEFAULT 0;
 
 -- ========================
 -- Indexing (OLAP-friendly)

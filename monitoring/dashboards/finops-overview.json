@@ -13,6 +13,31 @@
       "targets": [{ "expr": "sum(increase(savings_actual_savings[30d]))" }]
     },
     {
+  "title": "Budgets Usage",
+  "type": "gauge",
+  "targets": [
+    {
+      "format": "table",
+      "rawSql": "SELECT budget_name, (spent_amount / budget_limit) * 100 as pct_used FROM budgets;",
+      "refId": "A"
+    }
+  ],
+  "fieldConfig": {
+    "defaults": {
+      "min": 0,
+      "max": 100,
+      "thresholds": {
+        "mode": "percentage",
+        "steps": [
+          { "color": "green", "value": null },
+          { "color": "yellow", "value": 70 },
+          { "color": "red", "value": 90 }
+        ]
+      }
+    }
+  }
+},
+    {
       "type": "gauge",
       "title": "Anomalies Detected (30d)",
       "targets": [{ "expr": "count_over_time(anomalies_detected[30d])" }],

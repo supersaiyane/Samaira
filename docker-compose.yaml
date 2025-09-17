@@ -25,6 +25,22 @@ services:
       retries: 5
 
   # =========================
+  # Db Testing
+  # =========================
+  db_test:
+    image: postgres:15
+    container_name: finops-db-test
+    restart: always
+    environment:
+      POSTGRES_USER: finops
+      POSTGRES_PASSWORD: finops123
+      POSTGRES_DB: finopsdb_test
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata_test:/var/lib/postgresql/data
+
+  # =========================
   # Vault (Secrets Manager)
   # =========================
   vault:
