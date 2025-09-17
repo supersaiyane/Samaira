@@ -148,7 +148,7 @@ Ways you can contribute:
 - 🐞 File and fix bugs, optimize queries
 
 📬 Have an idea? Open an issue or a discussion.
-📢 Want to join the contributors team? [Raise a PR](https://github.com/yourusername/samaira)
+📢 Want to join the contributors team? [Raise a PR](https://github.com/supersaiyane/samaira)
 
 ---
 
