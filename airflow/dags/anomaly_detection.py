@@ -11,6 +11,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from app.models import Budget, Account, Service, Forecast
 from app.core.db import Base
+from app.services.finops_metrics import record_cost_anomaly
+
+
+record_cost_anomaly(account_id, service_id, is_anomaly=True)
 
 # =========================
 # DB Session Helper

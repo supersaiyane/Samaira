@@ -5,6 +5,9 @@ import psycopg2
 import os
 import boto3
 import json
+from app.services.finops_metrics import record_idle_resource_cost
+
+record_idle_resource_cost(resource_name, wasted_cost)
 
 # =========================
 # DB Connection Helper

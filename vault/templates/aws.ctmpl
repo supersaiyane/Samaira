@@ -1,0 +1,3 @@
+AWS_ACCESS_KEY_ID={{ with secret "secret/data/aws" }}{{ .Data.data.AWS_ACCESS_KEY_ID }}{{ end }}
+AWS_SECRET_ACCESS_KEY={{ with secret "secret/data/aws" }}{{ .Data.data.AWS_SECRET_ACCESS_KEY }}{{ end }}
+AWS_REGION={{ with secret "secret/data/aws" }}{{ .Data.data.AWS_REGION }}{{ end }}

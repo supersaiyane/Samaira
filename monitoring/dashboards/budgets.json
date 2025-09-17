@@ -24,6 +24,22 @@
       "targets": [{ "expr": "count_over_time(budget_breach_total[30d])" }]
     },
     {
+  "type": "gauge",
+  "title": "Budget Utilization (%)",
+  "targets": [
+    {
+      "expr": "finops_budget_utilization",
+      "legendFormat": "{{budget_name}} - {{account_id}}/{{service_id}}"
+    }
+    ],
+    "fieldConfig": {
+      "defaults": {
+        "unit": "percent",
+        "max": 2
+      }
+    }
+    },
+    {
       "type": "timeseries",
       "title": "MTD Spend vs Budget Trend",
       "targets": [

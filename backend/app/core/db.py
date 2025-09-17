@@ -1,27 +1,39 @@
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from app.core.config import settings
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from app.core.secrets_manager import CURRENT_SECRETS
+import asyncio
 
-# Base class for models
-Base = declarative_base()
+_engine = None
+_SessionLocal = None
 
-# Async engine (ensure asyncpg driver in DATABASE_URL)
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=True if settings.DB_DEBUG else False,  # toggle debug logging
-    future=True
-)
+def get_connection_url():
+    return (
+        f"postgresql+asyncpg://{CURRENT_SECRETS['DB_USER']}:{CURRENT_SECRETS['DB_PASSWORD']}"
+        f"@{CURRENT_SECRETS['DB_HOST']}:{CURRENT_SECRETS['DB_PORT']}/{CURRENT_SECRETS['DB_NAME']}"
+    )
 
-# Async session factory
-AsyncSessionLocal = sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autoflush=False,
-    autocommit=False,
-)
+def init_engine():
+    global _engine, _SessionLocal
+    conn_url = get_connection_url()
+    _engine = create_async_engine(conn_url, echo=False, future=True)
+    _SessionLocal = sessionmaker(
+        autocommit=False, autoflush=False, bind=_engine, class_=AsyncSession
+    )
 
-# Dependency for FastAPI routes
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        yield session
+def get_db():
+    if _SessionLocal is None:
+        init_engine()
+    return _SessionLocal()
+
+async def refresh_engine_if_needed():
+    """
+    Periodically check if secrets changed.
+    If yes → rebuild engine with new creds.
+    """
+    global _engine, _SessionLocal
+    while True:
+        new_url = get_connection_url()
+        if str(_engine.url) != new_url:
+            print("🔄 DB creds rotated, reconnecting engine...")
+            init_engine()
+        await asyncio.sleep(60)  # check every 1 min

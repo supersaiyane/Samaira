@@ -1,26 +1,21 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Sidebar from "./layouts/Sidebar";
-import Navbar from "./layouts/Navbar";
-import routes from "./routes";
+import { Navigate } from "react-router-dom";
+import Insights from "./pages/Insights";
+import Forecasts from "./pages/Forecasts";
+import Savings from "./pages/Savings";
+import IdleResources from "./pages/IdleResources";
+import Anomalies from "./pages/Anomalies";
+import Drift from "./pages/Drift"; // ✅ NEW
 
-function App() {
-  return (
-    <Router>
-      <div className="flex h-screen">
-        <Sidebar />
-        <div className="flex flex-col flex-1">
-          <Navbar />
-          <main className="p-6 overflow-auto">
-            <Routes>
-              {routes.map((route, idx) => (
-                <Route key={idx} path={route.path} element={<route.component />} />
-              ))}
-            </Routes>
-          </main>
-        </div>
-      </div>
-    </Router>
-  );
-}
+const routes = [
+  // Default redirect: when user hits `/`, go to `/insights`
+  { path: "/", component: () => <Navigate to="/insights" replace /> },
 
-export default App;
+  { path: "/insights", component: Insights },
+  { path: "/forecast", component: Forecasts },
+  { path: "/savings", component: Savings },
+  { path: "/idle", component: IdleResources },
+  { path: "/anomalies", component: Anomalies },
+  { path: "/drift", component: Drift }, // ✅ NEW ROUTE
+];
+
+export default routes;

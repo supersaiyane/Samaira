@@ -1,0 +1,25 @@
+{
+  "id": null,
+  "title": "Idle Resources Dashboard",
+  "tags": ["finops", "rightsizing"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 1,
+  "panels": [
+    {
+      "type": "bar",
+      "title": "Idle Resource Cost ($)",
+      "targets": [
+        {
+          "expr": "finops_idle_resource_cost",
+          "legendFormat": "{{resource_name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        }
+      }
+    }
+  ]
+}

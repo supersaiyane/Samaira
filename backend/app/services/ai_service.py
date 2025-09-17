@@ -9,9 +9,20 @@ from app.models.ai_queries_log import AIQueryLog
 from openai import AsyncOpenAI
 from app.services.llm_adapter import LLMAdapter
 from app.core.config import settings
+import prometheus_client as prom
 
 
 llm = LLMAdapter()
+
+
+# ==============================
+# Prometheus Metrics
+# ==============================
+AI_QUERIES_TOTAL = prom.Counter(
+    "finops_ai_queries_total",
+    "Total number of AI queries processed",
+    ["status"]  # yaml | llm | ollama | unsupported | unsafe | llm_failed
+)
 
 # ==============================
 # Load AI Queries (from YAML)
@@ -218,8 +229,22 @@ async def process_query(db: AsyncSession, nl_query: str):
     params.update(dynamic_params)
 
     # --- Step 5: Execute SQL ---
+    
     result = await db.execute(text(sql), params)
     rows = result.mappings().all()
+
+    # --- Step 5a: Log query ---
+    log_entry = AIQueryLog(
+        query_text=nl_query,
+        sql_generated=sql,
+        status=source or "unsupported"
+    )
+    db.add(log_entry)
+    await db.commit()
+
+    # Increment Prometheus counter
+    AI_QUERIES_TOTAL.labels(status=source or "unsupported").inc()
+
 
     # --- Step 6: Log successful query ---
     log_entry = AIQueryLog(

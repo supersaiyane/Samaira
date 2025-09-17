@@ -1,0 +1,25 @@
+{
+  "id": null,
+  "title": "Cost Anomalies Dashboard",
+  "tags": ["finops", "anomalies"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 1,
+  "panels": [
+    {
+      "type": "table",
+      "title": "Cost Anomalies (Last 24h)",
+      "targets": [
+        {
+          "expr": "finops_cost_anomaly == 1",
+          "legendFormat": "{{account_id}} - {{service_id}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        }
+      }
+    }
+  ]
+}

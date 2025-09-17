@@ -1,12 +1,15 @@
-FROM apache/airflow:2.7.2
+FROM apache/airflow:2.7.2-python3.11
 
 USER root
-RUN apt-get update && apt-get install -y build-essential python3-dev libpq-dev && rm -rf /var/lib/apt/lists/*
-USER airflow
+WORKDIR /opt/airflow
 
-# Copy extra deps
-COPY airflow/requirements.txt .
+# Install custom deps
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy DAGs
-COPY airflow/dags /opt/airflow/dags
+COPY dags/ /opt/airflow/dags/
+
+# Expose Airflow webserver
+EXPOSE 8080
+CMD ["airflow", "webserver"]

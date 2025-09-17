@@ -1,0 +1,125 @@
+apiVersion: 1
+groups:
+  # ========================
+  # Forecast Drift Alerts
+  # ========================
+  - name: cost-forecast-drift
+    interval: 1m
+    rules:
+      - uid: "drift-high"
+        title: "High Forecast Drift"
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            queryType: timeSeriesQuery
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              expr: finops_forecast_drift > 20
+              legendFormat: "{{ model }}"
+              datasource:
+                type: prometheus
+                uid: prometheus
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 2m
+        annotations:
+          summary: "Forecast drift exceeded 20% for {{ $labels.model }}"
+        labels:
+          severity: warning
+        contactPoint: "slack-alerts"
+
+  # ========================
+  # Budget Breach Alerts
+  # ========================
+  - name: budget-breaches
+    interval: 5m
+    rules:
+      - uid: "budget-exceeded"
+        title: "Budget Breach Detected"
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            queryType: timeSeriesQuery
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            model:
+              expr: finops_budget_utilization > 1
+              legendFormat: "{{ budget_name }}"
+              datasource:
+                type: prometheus
+                uid: prometheus
+        noDataState: NoData
+        execErrState: Alerting
+        for: 10m
+        annotations:
+          summary: "Budget {{ $labels.budget_name }} exceeded its limit"
+        labels:
+          severity: critical
+        contactPoint: "teams-alerts"
+
+  # ========================
+  # Cost Anomaly Alerts
+  # ========================
+  - name: cost-anomalies
+    interval: 2m
+    rules:
+      - uid: "cost-anomaly"
+        title: "Cost Anomaly Detected"
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            queryType: timeSeriesQuery
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              expr: finops_cost_anomaly == 1
+              legendFormat: "{{ account_id }}-{{ service_id }}"
+              datasource:
+                type: prometheus
+                uid: prometheus
+        noDataState: NoData
+        execErrState: Alerting
+        for: 5m
+        annotations:
+          summary: "Cost anomaly detected for account {{ $labels.account_id }}, service {{ $labels.service_id }}"
+        labels:
+          severity: high
+        contactPoint: "slack-alerts"
+
+  # ========================
+  # Idle Resource Alerts
+  # ========================
+  - name: idle-resources
+    interval: 10m
+    rules:
+      - uid: "idle-expensive"
+        title: "Idle Resource Wasting Cost"
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            queryType: timeSeriesQuery
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            model:
+              expr: finops_idle_resource_cost > 100
+              legendFormat: "{{ resource_name }}"
+              datasource:
+                type: prometheus
+                uid: prometheus
+        noDataState: NoData
+        execErrState: Alerting
+        for: 15m
+        annotations:
+          summary: "Idle resource {{ $labels.resource_name }} wasted more than $100 last month"
+        labels:
+          severity: medium
+        contactPoint: "teams-alerts"

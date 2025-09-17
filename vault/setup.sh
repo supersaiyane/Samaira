@@ -24,6 +24,7 @@ vault auth enable approle || true
 echo "🔗 Creating AppRole..."
 vault write auth/approle/role/finops-role \
     token_policies="finops-policy" \
+    secret_id_ttl=2h \
     token_ttl=1h \
     token_max_ttl=4h
 
@@ -34,6 +35,11 @@ echo "✅ AppRole created!"
 echo "ROLE_ID=$APPROLE_ID"
 echo "SECRET_ID=$SECRET_ID"
 
-# Save for docker-compose .env
+# Save to vault/secrets so Vault Agent can read them
+mkdir -p /vault/secrets
+echo "$APPROLE_ID" > /vault/secrets/role_id
+echo "$SECRET_ID" > /vault/secrets/secret_id
+
+# Also export to .env for Docker Compose (optional, useful in dev)
 echo "VAULT_ROLE_ID=$APPROLE_ID" >> ../.env
 echo "VAULT_SECRET_ID=$SECRET_ID" >> ../.env

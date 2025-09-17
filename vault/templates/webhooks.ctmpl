@@ -1,0 +1,2 @@
+SLACK_WEBHOOK_URL={{ with secret "secret/data/webhooks" }}{{ .Data.data.SLACK_WEBHOOK_URL }}{{ end }}
+TEAMS_WEBHOOK_URL={{ with secret "secret/data/webhooks" }}{{ .Data.data.TEAMS_WEBHOOK_URL }}{{ end }}

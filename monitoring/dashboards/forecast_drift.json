@@ -1,0 +1,91 @@
+{
+  "id": null,
+  "title": "Forecast Drift & Model Comparison",
+  "tags": ["finops", "forecasting", "drift"],
+  "timezone": "browser",
+  "schemaVersion": 37,
+  "version": 1,
+  "refresh": "5m",
+  "panels": [
+    {
+      "type": "graph",
+      "title": "Forecast Drift (MAPE) per Model",
+      "targets": [
+        {
+          "expr": "finops_forecast_drift",
+          "legendFormat": "{{model}}",
+          "interval": ""
+        }
+      ],
+      "xaxis": {
+        "show": true
+      },
+      "yaxes": [
+        {
+          "format": "percent",
+          "label": "MAPE",
+          "min": 0
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+       {
+      "type": "timeseries",
+      "title": "Forecast Drift (MAPE %)",
+      "targets": [
+        {
+          "expr": "finops_forecast_drift",
+          "legendFormat": "{{model}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Forecast Accuracy Comparison",
+      "targets": [
+        {
+          "expr": "finops_forecast_drift{model=\"Prophet\"}",
+          "legendFormat": "Prophet"
+        },
+        {
+          "expr": "finops_forecast_drift{model=\"ARIMA\"}",
+          "legendFormat": "ARIMA"
+        },
+        {
+          "expr": "finops_forecast_drift{model=\"SMA\"}",
+          "legendFormat": "SMA"
+        },
+        {
+          "expr": "finops_forecast_drift{model=\"LSTM\"}",
+          "legendFormat": "LSTM"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      }
+    },
+    {
+      "type": "table",
+      "title": "Forecast Drift Snapshot",
+      "targets": [
+        {
+          "expr": "finops_forecast_drift",
+          "instant": true,
+          "legendFormat": "{{model}}"
+        }
+      ],
+      "options": {
+        "showHeader": true
+      }
+    }
+  ]
+}

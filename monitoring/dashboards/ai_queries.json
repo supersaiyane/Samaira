@@ -1,0 +1,68 @@
+{
+  "id": null,
+  "title": "AI Query Engine – Usage & Sources",
+  "tags": ["finops", "ai", "queries"],
+  "timezone": "browser",
+  "schemaVersion": 37,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Total Queries",
+      "targets": [
+        {
+          "expr": "sum(finops_ai_queries_total)",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "type": "piechart",
+      "title": "Queries by Source",
+      "targets": [
+        {
+          "expr": "sum by(status) (finops_ai_queries_total)"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Queries Over Time",
+      "targets": [
+        {
+          "expr": "increase(finops_ai_queries_total[5m])",
+          "legendFormat": "{{status}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "type": "table",
+      "title": "Query Errors (Unsafe / Unsupported)",
+      "targets": [
+        {
+          "expr": "sum by(status) (finops_ai_queries_total{status=~\"unsafe|unsupported|llm_failed\"})"
+        }
+      ],
+      "options": {
+        "showHeader": true
+      }
+    }
+  ]
+}

@@ -43,6 +43,8 @@ services:
       - ./vault/policies:/vault/policies
       - ./vault/data:/vault/data
       - ./vault/setup.sh:/vault/setup.sh
+      - ./vault/templates:/vault/templates
+      - vault-secrets:/vault/secrets      
     healthcheck:
       test: ["CMD-SHELL", "curl -fs http://localhost:8200/v1/sys/health || exit 1"]
       interval: 10s
@@ -50,46 +52,61 @@ services:
       retries: 5
 
   # =========================
-  # FinOps App (Backend + Frontend + Airflow in one image)
+  # Backend (FastAPI)
   # =========================
-  finops-app:
-    build: .
-    container_name: finops-app
+  backend:
+    build: ./backend
+    container_name: finops-backend
     restart: always
-    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app
+      - vault-secrets:/vault/secrets:ro
+    env_file:
+      - /vault/secrets/db.env
+      - /vault/secrets/aws.env
+      - /vault/secrets/webhooks.env
     depends_on:
       db:
         condition: service_healthy
       vault:
         condition: service_healthy
+      vault-agent:
+        condition: service_started
+      
+
+  # =========================
+  # Frontend (React + Nginx)
+  # =========================
+  frontend:
+    build: ./frontend
+    container_name: finops-frontend
+    restart: always
     ports:
-      - "8000:8000"   # FastAPI backend
-      - "3000:3000"   # React frontend
-      - "8080:8080"   # Airflow UI
+      - "3000:80"
+    depends_on:
+      - backend
+
+  # =========================
+  # Airflow (DAGs)
+  # =========================
+  airflow:
+    build: ./airflow
+    container_name: finops-airflow
+    restart: always
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+      vault-agent:
+        condition: service_started   
+    ports:
+      - "8080:8080"
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
-      - ./app:/app/app
-      - ./frontend:/frontend
-      - ./scripts:/app/scripts   # to mount seed_instance_catalog.py
-    environment:
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
-      DB_HOST: db
-      DB_PORT: 5432
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_REGION: ${AWS_REGION}
-      VAULT_ADDR: http://vault:8200
-      VAULT_ROLE_ID: ${VAULT_ROLE_ID}
-      VAULT_SECRET_ID: ${VAULT_SECRET_ID}
-    entrypoint: ["/entrypoint.sh"]
-    healthcheck:
-      test: ["CMD-SHELL", "/healthcheck.sh || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
+      - vault-secrets:/vault/secrets:ro
 
   # =========================
   # Prometheus
@@ -103,7 +120,7 @@ services:
     ports:
       - "9090:9090"
     depends_on:
-      - finops-app
+      - backend
 
   # =========================
   # Grafana
@@ -123,6 +140,10 @@ services:
       - ./monitoring/dashboards:/etc/grafana/provisioning/dashboards
       - ./monitoring/provisioning/datasources:/etc/grafana/provisioning/datasources
       - ./monitoring/provisioning/dashboards:/etc/grafana/provisioning/dashboards-providers
+      - ./monitoring/provisioning/alerting:/etc/grafana/provisioning/alerting
+      - vault-secrets:/vault/secrets:ro
+    env_file:
+      - /vault/secrets/webhooks.env 
     depends_on:
       - prometheus
       - loki
@@ -156,18 +177,6 @@ services:
       - loki
 
   # =========================
-  # FastAPI Metrics Exporter
-  # =========================
-  backend-metrics:
-    image: prom/prometheus-exporter-fastapi:latest
-    container_name: finops-backend-metrics
-    restart: always
-    environment:
-      - TARGET_URL=http://finops-app:8000/metrics
-    depends_on:
-      - finops-app
-
-  # =========================
   # Postgres Exporter
   # =========================
   postgres-exporter:
@@ -189,36 +198,35 @@ services:
     container_name: finops-airflow-exporter
     restart: always
     environment:
-      - AIRFLOW_BASE_URL=http://finops-app:8080
+      - AIRFLOW_BASE_URL=http://airflow:8080
       - AIRFLOW_USERNAME=admin
       - AIRFLOW_PASSWORD=admin
     ports:
       - "9112:9112"
     depends_on:
-      - finops-app
+      - airflow
 
-  # =====================
+  # =========================
   # PlantUML Server
-  # =====================
+  # =========================
   plantuml:
     image: plantuml/plantuml-server:jetty
     container_name: plantuml-server
     restart: unless-stopped
     ports:
-      - "8082:8080"   # Access PlantUML at http://localhost:8082
+      - "8082:8080"
     environment:
       - JAVA_OPTS=-Xmx512m
 
-
-  # =====================
-  # Mermaid Live Editor (mmdc CLI inside container)
-  # =====================
+  # =========================
+  # Mermaid Live Editor
+  # =========================
   mermaid:
     image: ghcr.io/mermaid-js/mermaid-live-editor:latest
     container_name: mermaid-live-editor
     restart: unless-stopped
     ports:
-      - "8081:8080" 
+      - "8081:8080"
 
   # =========================
   # Honkit for Documentation
@@ -240,7 +248,7 @@ services:
     container_name: finops-ollama
     restart: unless-stopped
     ports:
-      - "11434:11434"   # API exposed at http://localhost:11434
+      - "11434:11434"
     volumes:
       - ollama-data:/root/.ollama
     healthcheck:
